@@ -350,3 +350,11 @@ bbcode_enabled = true
 scroll_active = true
 scroll_following = true
 text = ""
+
+[node name="DangerVignette" type="ColorRect" parent="HUD/Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(1, 0.2, 0.2, 0)

@@ -17,6 +17,7 @@ const HIDE_COOLDOWN := 3.0
 @onready var prompt_label: Label = $HUD/Root/Prompt
 @onready var start_button: Button = $HUD/Root/StartButton
 @onready var infection_log: RichTextLabel = $HUD/Root/InfectionLog
+@onready var danger_vignette: ColorRect = $HUD/Root/DangerVignette
 
 var round_active := false
 var time_left := 0.0
@@ -298,10 +299,18 @@ func _update_hud() -> void:
 	var local := _local_player()
 	var prompt_text := local.prompt if local else ""
 
-	# Add threat indicator to prompt
-	if local and not local.is_zombie and local._threat_level > 0.5:
-		var threat_indicator := " ⚠️ DANGER!" if local._threat_level > 0.8 else " ⚠️"
-		prompt_text += threat_indicator
+	# Add threat indicator to prompt and update visual vignette
+	if local and not local.is_zombie:
+		var threat := local._threat_level
+		if threat > 0.5:
+			var threat_indicator := " ⚠️ DANGER!" if threat > 0.8 else " ⚠️"
+			prompt_text += threat_indicator
+		# Update danger vignette color: intensifies as threat increases
+		if danger_vignette:
+			danger_vignette.color = Color(1.0, 0.2, 0.2, threat * 0.4)
+	else:
+		if danger_vignette:
+			danger_vignette.color = Color(1.0, 0.2, 0.2, 0.0)
 
 	prompt_label.text = prompt_text
 
