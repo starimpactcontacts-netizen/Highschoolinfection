@@ -37,7 +37,15 @@ UDP **24565** (or use a tool like ZeroTier/Radmin VPN). Proper hosting comes lat
 | Move | W A S D |
 | Look | Mouse |
 | Jump | Space |
+| Hide in / leave locker | E |
 | Release / recapture mouse | Esc |
+
+## Lockers
+
+Humans can duck into a red locker (walk up, press **E**) to break line of sight
+for up to **15 seconds** — then you're kicked out automatically, with a short
+cooldown before you can hide again. Only one person per locker, and you can't
+be infected while hidden. Use it to survive a chase, not to camp.
 
 ## How the code is laid out
 

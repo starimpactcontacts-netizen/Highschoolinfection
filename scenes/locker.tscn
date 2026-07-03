@@ -1,0 +1,40 @@
+[gd_scene load_steps=6 format=3 uid="uid://bhslocker001"]
+
+[ext_resource type="Script" path="res://scripts/locker.gd" id="1"]
+
+[sub_resource type="BoxShape3D" id="box_col"]
+size = Vector3(1.2, 2.0, 0.5)
+
+[sub_resource type="BoxMesh" id="box_body"]
+size = Vector3(1.2, 2.0, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="mat_red"]
+albedo_color = Color(0.72, 0.11, 0.12, 1)
+metallic = 0.2
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="box_door"]
+size = Vector3(1.15, 1.85, 0.05)
+
+[node name="Locker" type="StaticBody3D"]
+script = ExtResource("1")
+
+[node name="Cabinet" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("box_body")
+surface_material_override/0 = SubResource("mat_red")
+
+[node name="Col" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("box_col")
+
+[node name="Door" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 1, 0.26)
+
+[node name="DoorMesh" type="MeshInstance3D" parent="Door"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.58, 0, 0)
+mesh = SubResource("box_door")
+surface_material_override/0 = SubResource("mat_red")
+
+[node name="HidePoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0.15)
