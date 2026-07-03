@@ -33,6 +33,9 @@ var _sync_pitch: float
 var _infect_cooldown := 0.0
 var _hide_cooldown := 0.0
 var _near_locker: Node = null
+var _threat_level := 0.0           # 0.0 = safe, 1.0 = imminent danger
+var _nearby_zombies := 0
+var _last_threat_sound := 0.0
 
 func setup(id: int, pname: String) -> void:
 	peer_id = id
@@ -71,6 +74,7 @@ func _process(delta: float) -> void:
 	if is_multiplayer_authority():
 		_hide_cooldown = maxf(0.0, _hide_cooldown - delta)
 		_update_interaction()
+		_update_threat(delta)
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
@@ -123,6 +127,34 @@ func _update_interaction() -> void:
 	else:
 		prompt = ""
 
+func _update_threat(delta: float) -> void:
+	if is_hidden or is_zombie:
+		_threat_level = 0.0
+		_nearby_zombies = 0
+		return
+
+	# Scan for nearby zombies in the players parent
+	_nearby_zombies = 0
+	var closest_distance := 100.0
+	var players_root := get_parent()
+	if players_root:
+		for player in players_root.get_children():
+			if player == self or not player.is_zombie:
+				continue
+			var dist := global_position.distance_to(player.global_position)
+			if dist < 25.0:
+				_nearby_zombies += 1
+				closest_distance = minf(closest_distance, dist)
+
+	if _nearby_zombies > 0:
+		_threat_level = clampf(1.0 - (closest_distance / 25.0), 0.0, 1.0)
+		_last_threat_sound += delta
+		if _threat_level > 0.5 and _last_threat_sound > 0.8:
+			SFX.play("danger_pulse", Vector3.ZERO, -10.0)
+			_last_threat_sound = 0.0
+	else:
+		_threat_level = 0.0
+
 func _closest_free_locker() -> Node:
 	var best: Node = null
 	var best_d := LOCKER_REACH
@@ -159,6 +191,8 @@ func become_zombie() -> void:
 	if is_zombie:
 		return
 	is_zombie = true
+	if is_multiplayer_authority():
+		SFX.play("infected", global_position)
 	_apply_team_look()
 
 func set_hidden(hidden: bool, locker: Node, duration: float) -> void:
@@ -167,6 +201,8 @@ func set_hidden(hidden: bool, locker: Node, duration: float) -> void:
 		if locker:
 			global_transform = locker.get_hide_transform()
 			locker.set_open(false)
+			if is_multiplayer_authority():
+				SFX.play("locker_close", locker.global_position)
 		hide_time_left = duration
 		velocity = Vector3.ZERO
 		_set_visible(false)
@@ -179,6 +215,8 @@ func set_hidden(hidden: bool, locker: Node, duration: float) -> void:
 		infect_area.monitoring = true
 		if is_multiplayer_authority():
 			_hide_cooldown = 3.0
+			if locker:
+				SFX.play("locker_open", locker.global_position)
 
 func _set_visible(v: bool) -> void:
 	body_mesh.visible = v

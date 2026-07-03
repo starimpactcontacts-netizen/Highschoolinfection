@@ -154,6 +154,7 @@ func request_infect(target_id: int) -> void:
 func net_infect(target_id: int) -> void:
 	var n := players_root.get_node_or_null(str(target_id))
 	if n:
+		SFX.play("infect", n.global_position)
 		n.become_zombie()
 
 ## --- Hiding in lockers ---
@@ -275,7 +276,14 @@ func _update_hud() -> void:
 	start_button.visible = is_host and not round_active and result_text == ""
 
 	var local := _local_player()
-	prompt_label.text = local.prompt if local else ""
+	var prompt_text := local.prompt if local else ""
+
+	# Add threat indicator to prompt
+	if local and not local.is_zombie and local._threat_level > 0.5:
+		var threat_indicator := " ⚠️ DANGER!" if local._threat_level > 0.8 else " ⚠️"
+		prompt_text += threat_indicator
+
+	prompt_label.text = prompt_text
 
 	if result_text != "":
 		clock_label.text = result_text
