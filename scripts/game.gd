@@ -16,6 +16,7 @@ const HIDE_COOLDOWN := 3.0
 @onready var status_label: Label = $HUD/Root/Status
 @onready var prompt_label: Label = $HUD/Root/Prompt
 @onready var start_button: Button = $HUD/Root/StartButton
+@onready var infection_log: RichTextLabel = $HUD/Root/InfectionLog
 
 var round_active := false
 var time_left := 0.0
@@ -134,6 +135,8 @@ func begin(t: float) -> void:
 	time_left = t
 	result_text = ""
 	round_active = true
+	if infection_log:
+		infection_log.clear()
 
 @rpc("call_local", "reliable")
 func finish(msg: String) -> void:
@@ -155,7 +158,17 @@ func net_infect(target_id: int) -> void:
 	var n := players_root.get_node_or_null(str(target_id))
 	if n:
 		SFX.play("infect", n.global_position)
+		_log_infection(n.display_name)
 		n.become_zombie()
+
+func _log_infection(name: String) -> void:
+	if infection_log == null:
+		return
+	var timestamp := Time.get_ticks_msec()
+	infection_log.append_text("[color=ff5555][%s] %s infected[/color]\n" % [
+		_format_time(timestamp),
+		name
+	])
 
 ## --- Hiding in lockers ---
 
@@ -265,6 +278,13 @@ func _make_rain() -> void:
 	mesh.material = mm
 	p.draw_pass_1 = mesh
 	add_child(p)
+
+## --- Event Logging ---
+
+func _format_time(ms: int) -> String:
+	var secs := int(ms / 1000.0)
+	var mins := secs / 60
+	return "%d:%02d" % [mins, secs % 60]
 
 ## --- HUD ---
 
