@@ -1,0 +1,25 @@
+; Engine configuration file.
+; Generated for the "High School Infection" prototype.
+
+config_version=5
+
+[application]
+
+config/name="High School Infection"
+config/description="Asymmetrical high school zombie infection multiplayer prototype."
+run/main_scene="res://scenes/main_menu.tscn"
+config/features=PackedStringArray("4.4", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+Net="*res://scripts/net.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.02, 0.02, 0.04, 1)
