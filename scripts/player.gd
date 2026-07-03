@@ -43,16 +43,23 @@ func _ready() -> void:
 	_sync_pos = global_position
 	_sync_yaw = rotation.y
 	camera.current = is_multiplayer_authority()
+	# Start with the cursor free so the host can click START ROUND; the player
+	# clicks in the world to capture the mouse for looking (Esc frees it again).
 	if is_multiplayer_authority():
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_apply_team_look()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and camera.current:
+	if not camera.current:
+		return
+	# Click anywhere in the world (not on a button) to look around.
+	if event is InputEventMouseButton and event.pressed:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * MOUSE_SENS)
 		head.rotate_x(-event.relative.y * MOUSE_SENS)
 		head.rotation.x = clampf(head.rotation.x, -1.4, 1.4)
-	if event.is_action_pressed("ui_cancel") and is_multiplayer_authority():
+	if event.is_action_pressed("ui_cancel"):
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		else:
@@ -97,6 +104,9 @@ func _drive_local(delta: float) -> void:
 
 ## Local player: work out the current interaction prompt and act on E.
 func _update_interaction() -> void:
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		prompt = "Click to look around"
+		return
 	var game := get_tree().get_first_node_in_group("game")
 	if is_hidden:
 		prompt = "[E] Leave  (%d)" % ceili(hide_time_left)
