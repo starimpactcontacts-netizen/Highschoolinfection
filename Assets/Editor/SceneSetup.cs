@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 using TMPro;
+using UnityEngine.UI;
 
 /// <summary>
 /// Editor script that auto-generates a complete third-person demo scene.
