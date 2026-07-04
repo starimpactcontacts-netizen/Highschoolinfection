@@ -178,7 +178,7 @@ static func ritual_circle() -> ImageTexture:
 		for ring in [100.0, 88.0]:
 			for i in range(720):
 				var a := TAU * float(i) / 720.0
-				var p := c + Vector2(cos(a), sin(a)) * ring
+				var p: Vector2 = c + Vector2(cos(a), sin(a)) * ring
 				img.set_pixel(int(p.x), int(p.y), chalk)
 		# five-pointed star connecting every second vertex of a pentagon
 		var pts: Array = []
