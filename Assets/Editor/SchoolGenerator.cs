@@ -16,17 +16,17 @@ public class SchoolGenerator
 {
     // --- Tunable layout constants (metres) ---
     const float WallThickness = 0.3f;
-    const float FloorHeight = 4f;
+    const float FloorHeight = 4.5f;
     const int FloorCount = 3;
 
-    const float BuildingWidth = 60f;   // along X
-    const float BuildingDepth = 14f;   // along Z (hallway + classroom band)
-    const float HallwayDepth = 4f;     // walkway width inside the building
+    const float BuildingWidth = 90f;   // along X  (scaled up for realism)
+    const float BuildingDepth = 22f;   // along Z (hallway + classroom band)
+    const float HallwayDepth = 6f;     // walkway width inside the building
 
-    const float CourtyardDepth = 40f;  // space in front of the building
-    const float PathWidth = 8f;
+    const float CourtyardDepth = 55f;  // space in front of the building
+    const float PathWidth = 10f;
 
-    const int ClassroomCount = 6;      // rooms per floor along the hallway
+    const int ClassroomCount = 8;      // rooms per floor along the hallway
 
     // Shared materials, built once per generation.
     static Material _matFloor, _matWall, _matAccent, _matGround, _matPath, _matGlass;
@@ -146,6 +146,10 @@ public class SchoolGenerator
 
             // Classroom dividers along the band.
             BuildClassroomDividers(floorGroup, y, classroomCenterZ, classroomBandDepth);
+
+            // Locker banks lining the hallway, and ceiling fluorescent strips.
+            BuildLockers(floorGroup, y, hallwayCenterZ);
+            BuildCeilingLights(floorGroup, y, hallwayCenterZ);
         }
 
         // Roof cap.
@@ -247,6 +251,58 @@ public class SchoolGenerator
         }
     }
 
+    // Rows of lockers along the front (courtyard-side) hallway wall.
+    static void BuildLockers(Transform parent, float y, float hallwayZ)
+    {
+        Material lockerMat = MakeMaterial(new Color(0.35f, 0.55f, 0.75f)); // school-blue lockers
+        float lockerZ = hallwayZ - HallwayDepth * 0.5f + 0.4f;             // hugging the front wall
+        float bankWidth = 6f;
+        float gap = BuildingWidth / ClassroomCount;                        // leave room at each doorway
+        float halfW = BuildingWidth * 0.5f;
+
+        for (int i = 0; i < ClassroomCount; i++)
+        {
+            float cx = -halfW + gap * (i + 0.5f);
+            // Two short banks flanking each classroom doorway.
+            CreateBox($"Lockers_{i}a", parent,
+                new Vector3(cx - bankWidth * 0.5f - 1f, y + 1f, lockerZ),
+                new Vector3(bankWidth, 2f, 0.6f), lockerMat);
+            CreateBox($"Lockers_{i}b", parent,
+                new Vector3(cx + bankWidth * 0.5f + 1f, y + 1f, lockerZ),
+                new Vector3(bankWidth, 2f, 0.6f), lockerMat);
+        }
+    }
+
+    // Emissive ceiling strips + real point lights down the hallway.
+    static void BuildCeilingLights(Transform parent, float y, float hallwayZ)
+    {
+        Material lightMat = MakeEmissiveMaterial(new Color(1f, 0.98f, 0.9f));
+        float ceilingY = y + FloorHeight - 0.15f;
+        int strips = 6;
+        float spacing = BuildingWidth / strips;
+        float halfW = BuildingWidth * 0.5f;
+
+        for (int i = 0; i < strips; i++)
+        {
+            float x = -halfW + spacing * (i + 0.5f);
+
+            // Visible fixture.
+            CreateBox($"LightFixture_{i}", parent,
+                new Vector3(x, ceilingY, hallwayZ),
+                new Vector3(2.5f, 0.15f, 0.6f), lightMat);
+
+            // Actual light so the hallway is lit.
+            var lightGO = new GameObject($"HallLight_{i}");
+            lightGO.transform.SetParent(parent);
+            lightGO.transform.localPosition = new Vector3(x, ceilingY - 0.3f, hallwayZ);
+            var light = lightGO.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.range = spacing * 1.6f;
+            light.intensity = 1.2f;
+            light.color = new Color(1f, 0.98f, 0.9f);
+        }
+    }
+
     static void BuildPerimeterWall(Transform parent)
     {
         var group = new GameObject("Perimeter").transform;
@@ -342,6 +398,17 @@ public class SchoolGenerator
         Shader shader = Shader.Find("Universal Render Pipeline/Lit");
         if (shader == null) shader = Shader.Find("Standard");
         var m = new Material(shader) { color = c };
+        return m;
+    }
+
+    // Glowing material for light fixtures (uses emission so strips read as "on").
+    static Material MakeEmissiveMaterial(Color c)
+    {
+        var m = MakeMaterial(c);
+        m.EnableKeyword("_EMISSION");
+        m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+        if (m.HasProperty("_EmissionColor"))
+            m.SetColor("_EmissionColor", c * 2f);
         return m;
     }
 }

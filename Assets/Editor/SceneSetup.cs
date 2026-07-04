@@ -17,7 +17,8 @@ public class SceneSetup
 
         // --- Create Player ---
         GameObject playerGO = new GameObject("Player");
-        playerGO.transform.position = Vector3.zero;
+        // Spawn at the front gate on the courtyard, facing the school (+Z).
+        playerGO.transform.position = new Vector3(0, 1f, -30f);
 
         // Add CharacterController
         CharacterController charController = playerGO.AddComponent<CharacterController>();
@@ -40,21 +41,24 @@ public class SceneSetup
         Camera mainCamera = Camera.main;
         if (mainCamera != null)
         {
-            mainCamera.gameObject.AddComponent<IsometricFollowCamera>();
-            var followCam = mainCamera.GetComponent<IsometricFollowCamera>();
+            // Strip any old camera scripts so we don't stack duplicates.
+            var oldIso = mainCamera.GetComponent<IsometricFollowCamera>();
+            if (oldIso != null) Object.DestroyImmediate(oldIso);
+            var oldTpc = mainCamera.GetComponent<ThirdPersonCamera>();
+            if (oldTpc != null) Object.DestroyImmediate(oldTpc);
 
-            // Use reflection to set the target
-            var targetField = typeof(IsometricFollowCamera).GetField("target",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            targetField?.SetValue(followCam, playerGO.transform);
+            var cam = mainCamera.gameObject.AddComponent<ThirdPersonCamera>();
+            cam.SetTarget(playerGO.transform);
         }
 
         EditorUtility.DisplayDialog("Scene Setup Complete!",
             "Demo scene generated!\n\n" +
-            "Player and Camera follow system ready.\n\n" +
+            "Player + over-the-shoulder camera ready.\n\n" +
             "Controls:\n" +
-            "WASD - Move\n" +
-            "Shift - Run\n\n" +
+            "WASD - Move (relative to camera)\n" +
+            "Mouse - Orbit camera\n" +
+            "Shift - Run\n" +
+            "Esc - Release mouse / Click - recapture\n\n" +
             "Press Play to test!", "OK");
     }
 }
