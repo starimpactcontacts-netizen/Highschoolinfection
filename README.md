@@ -1,89 +1,76 @@
-# High School Infection
+# AKADEMI — UI & Environment Demo
 
-Asymmetrical multiplayer zombie-infection game set in a dark, rainy high school.
-Humans hide and survive the night; zombies hunt and spread the infection by touch.
-If even one human is alive when the timer runs out, the humans win. If everyone
-gets infected, the zombies win.
+A single-player, walkable anime-high-school demo built in **Godot 4**, focused
+entirely on **environment + UI**. No multiplayer, no game loop — this is the
+visual proof-of-concept. Every texture, mesh, icon, and effect is **generated
+in code**: the repo ships zero art assets.
 
-> This is an early **playable prototype** — a blockout school, first-person
-> movement, networked lobby, and the core infection/win-loss loop. Art,
-> customization, voice chat, and the shop come later.
+## Run it
 
-## How to run it
+1. Open Godot 4, **Import** this folder's `project.godot`.
+2. Press **F5**. Title screen → **START**.
+3. You spawn just inside the main gate. Click the window once to capture the
+   mouse and look around.
 
-1. Install **Godot 4** (you already have the `.mono` build — that's fine).
-2. Open Godot, click **Import**, and select this project's `project.godot`.
-3. Press **F5** (or the ▶ Play button) to launch. You'll see the main menu.
+## What's in the world
 
-## Testing multiplayer on one machine
+- **Main gate** with iron doors, perimeter walls, and a sakura-lined stone path
+- **Fountain plaza** with running spray and benches
+- **The school**: white hollow-square building, 4-storey facade, glass windows
+- **Ground floor** fully walkable: entrance hall with shoe lockers, a ring
+  hallway around an **open-air inner courtyard** (big sakura tree, benches),
+  classrooms **1-A / 1-B** furnished with desks + chalkboards, an **Occult
+  Club** room (ritual circle, candles, purple light), labeled locked doors
+  (Nurse, Faculty, Art, Science, Cooking), vending machines, bulletin boards,
+  fire extinguishers, a janitor's mop corner
+- **Incinerator area** hidden behind the school
+- Drifting **sakura petals**, sun + sky, polished reflective floors
 
-You can run several copies of the game at once to fake a lobby:
+## The UI (the point of this demo)
 
-1. In Godot, go to **Debug → Customize Run Instances…**
-2. Enable it and set **Number of instances** to `3` (or more).
-3. Press **F5**. Several game windows open.
-4. In one window click **HOST GAME**. In the others, leave the IP as
-   `127.0.0.1` and click **JOIN GAME**.
-5. Everyone spawns in the school. The **host** sees a **START ROUND** button —
-   click it to pick 2 random zombies and start the 5-minute timer.
+| Element | Where | Notes |
+| --- | --- | --- |
+| Clock + day + phase | top right | big pink digits; game time actually advances |
+| Heartbeat sanity meter | bottom right | pulsing heart; beats faster + turns dark red as sanity drops |
+| Reputation bar | bottom center | dark-red → pink gradient with slider marker |
+| Interaction prompt | center | walk up to props and press **E** for flavor text |
+| **Smartphone pause menu** | **Enter** | app grid: Calendar, Camera, Schemes, Student Info, Settings |
+| **Yandere Vision** | **V** | world goes grey; key items glow green / yellow through walls |
+| Photo mode | phone → Camera | viewfinder brackets, REC tag, LMB snap flash, RMB exit |
+| Sanity visual shift | press **1** / **2** | world desaturates, vignette closes in, camera shakes at low sanity |
 
-To play with friends over the internet you'll need the host to port-forward
-UDP **24565** (or use a tool like ZeroTier/Radmin VPN). Proper hosting comes later.
+The phone's **Settings app has live sliders** for sanity / reputation /
+clock speed — drag them and close the phone to watch the world change.
 
 ## Controls
 
 | Action | Key |
 | --- | --- |
-| Move | W A S D |
-| Look | Mouse |
-| Jump | Space |
-| Hide in / leave locker | E |
-| Release / recapture mouse | Esc |
+| Move / run | WASD / Shift |
+| Look | Mouse (click to capture, Esc to release) |
+| Interact | E |
+| Smartphone menu | Enter |
+| Yandere Vision | V |
+| Sanity down / up (demo) | 1 / 2 |
+| Reputation down / up (demo) | - / + |
 
-## Lockers
-
-Humans can duck into a red locker (walk up, press **E**) to break line of sight
-for up to **15 seconds** — then you're kicked out automatically, with a short
-cooldown before you can hide again. Only one person per locker, and you can't
-be infected while hidden. Use it to survive a chase, not to camp.
-
-## Character customization (UI prototype)
-
-From the title screen, hit **CUSTOMIZE CHARACTER**. This opens a full
-customization screen with a **live preview doll** (drawn entirely in code — no
-art assets yet) that updates instantly as you pick:
-
-- Hair style + hair color
-- Eye color
-- Skin tone
-- Uniform color
-- Accessory (ribbon, glasses, headset, mask)
-
-Every item carries a **rarity tier** (Common / Rare / Epic / Legendary) with a
-matching swatch border — the same data model the cosmetics shop and monetization
-will hang off later. Selections live in the `Cosmetics` autoload, so they persist
-across screens and will drive the in-game character look. Falling sakura petals
-on the menu/customization screens are procedural too (`scripts/petals.gd`).
-
-## How the code is laid out
+## Code layout
 
 | File | What it does |
 | --- | --- |
-| `scripts/net.gd` | Autoload. Sets up input, hosts/joins, switches scenes. |
-| `scripts/cosmetics.gd` | Autoload. Cosmetics catalog, rarities, and the local player's chosen look. |
-| `scenes/main_menu.tscn` + `scripts/main_menu.gd` | Title screen (host / join / customize). |
-| `scenes/customization.tscn` + `scripts/customization.gd` | Character customization UI. |
-| `scripts/char_preview.gd` | Code-drawn live preview doll. |
-| `scripts/petals.gd` | Procedural falling sakura petals overlay. |
-| `scenes/game.tscn` + `scripts/game.gd` | The match: level, spawning, zombie assignment, timer, win/loss. Server-authoritative. |
-| `scenes/player.tscn` + `scripts/player.gd` | One player. Same script for humans and zombies; infected state flips on touch. |
+| `scripts/state.gd` | Autoload: sanity, reputation, clock, UI flags, input map |
+| `scripts/texgen.gd` | Procedural textures (linoleum, lockers, facade, vending…) |
+| `scripts/akademi.gd` | Builds the whole campus in code |
+| `scripts/player_fp.gd` | First-person controller + interaction raycast |
+| `scripts/fx.gd` | Post FX: vision greyscale shader, sanity vignette, photo flash |
+| `scripts/hud.gd` | Clock, heart meter, reputation bar, prompts, viewfinder |
+| `scripts/phone.gd` | Smartphone pause menu + apps |
+| `scripts/title.gd` | Title screen with drifting petals |
+| `scripts/school.gd` | Scene orchestrator + global hotkeys |
 
-## Roadmap (post-prototype)
+## Next steps (when this look is approved)
 
-- Real high-school art + character models and animations
-- Wire customization choices onto the in-game player mesh
-- More cosmetic items + the actual shop UI
-- Proximity voice + text chat (the mic-panic mechanic)
-- Sabotage mechanics (lock doors, shove players, lockers)
-- Dedicated servers + matchmaking
-- Cosmetics shop + donations
+- Rooftop access + more floors
+- NPC students walking routines
+- Real character models & animations
+- Swap procedural textures for real art, room by room
