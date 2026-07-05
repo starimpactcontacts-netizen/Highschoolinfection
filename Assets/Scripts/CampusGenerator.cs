@@ -13,7 +13,13 @@ using UnityEngine;
 /// each time, and hides (not deletes) any pre-existing "School"/"AnimeClassroom" objects
 /// so they don't overlap.
 ///
-/// This is a BLOCKOUT: primitives + flat colors, not final art.
+/// Structural elements (floors, walls, beams, ramps) stay primitives. Furniture/props
+/// (desks, chairs, boards, computers, lockers, bookshelves, doors, blinds, the bus) are
+/// instantiated from the imported "School Assets" pack via Resources.Load — see
+/// Assets/school/Prefabs/Resources/props. SpawnProp() adds a BoxCollider to anything
+/// that doesn't already have one, so every prop is solid even if the pack didn't include
+/// collision. This is a BLOCKOUT for layout/scale: prop orientations are best-guess since
+/// the pack wasn't authored for this layout — expect to nudge a few rotations in-editor.
 /// </summary>
 public class CampusGenerator : MonoBehaviour
 {
@@ -62,7 +68,7 @@ public class CampusGenerator : MonoBehaviour
 
     // Shared materials, built once per generation.
     Material _matGround, _matPath, _matFloor, _matWall, _matAccent, _matGlass, _matFence,
-        _matLocker, _matDesk, _matShelf, _matTrunk, _matCanopy, _matGymFloor, _matRoofRail;
+        _matTrunk, _matCanopy, _matGymFloor, _matRoofRail;
 
     void Awake()
     {
@@ -188,6 +194,8 @@ public class CampusGenerator : MonoBehaviour
 
         CreateBox("Clocktower", group, new Vector3(0, 6f, -2f), new Vector3(4f, 12f, 4f), _matWall);
 
+        SpawnProp("bus", group, new Vector3(-22f, 0f, -50f), Quaternion.Euler(0f, 90f, 0f));
+
         BuildCherryBlossoms(group);
     }
 
@@ -238,6 +246,7 @@ public class CampusGenerator : MonoBehaviour
             BuildSideWall(floorGroup, y, -HalfWidth, floor == 0); // west wall: annex breezeway gap on ground floor
             BuildSideWall(floorGroup, y, HalfWidth, false);               // east wall: solid every floor
             BuildFrontWall(floorGroup, y, floor == 0);
+            BuildWindowBlinds(floorGroup, y, floor == 0);
 
             BuildRoomSegments(floorGroup, y, segments);
             BuildLockers(floorGroup, y, segments);
@@ -338,6 +347,21 @@ public class CampusGenerator : MonoBehaviour
             new Vector3(doorGap, 1f, WallThickness), _matWall);
     }
 
+    // Blinds on the front glass band, skipping the ground-floor entrance gap.
+    void BuildWindowBlinds(Transform parent, float y, bool groundFloor)
+    {
+        int count = 6;
+        float spacing = BuildingWidth / count;
+        float doorHalf = groundFloor ? PathWidth * 0.5f + 1f : 0f;
+
+        for (int i = 0; i < count; i++)
+        {
+            float x = -HalfWidth + spacing * (i + 0.5f);
+            if (Mathf.Abs(x) < doorHalf) continue;
+            SpawnProp("jalousie", parent, new Vector3(x, y + FloorHeight * 0.6f, 0.2f), Quaternion.identity);
+        }
+    }
+
     // Builds hallway wall (with door gaps), classroom dividers, and furniture for each segment.
     void BuildRoomSegments(Transform parent, float y, RoomType[] segments)
     {
@@ -373,8 +397,11 @@ public class CampusGenerator : MonoBehaviour
 
             // Hallway wall segment with a centered doorway.
             float doorWidth = Mathf.Min(groupWidth * 0.4f, 4f);
-            BuildWallWithGap($"HallWall_{hallSeg++}", parent, groupCenterX, groupWidth,
+            BuildWallWithGap($"HallWall_{hallSeg}", parent, groupCenterX, groupWidth,
                 y + FloorHeight * 0.5f, hallwayZ, FloorHeight, doorWidth, _matWall, true);
+            SpawnProp(hallSeg % 2 == 0 ? "a door" : "a door1", parent,
+                new Vector3(groupCenterX - doorWidth * 0.5f - 0.05f, y, hallwayZ), Quaternion.Euler(0f, 90f, 0f));
+            hallSeg++;
 
             // Divider walls at the boundaries between distinct room groups (not merged rooms, not stairwell).
             bool nextIsStairwell = group.start + group.count < segments.Length &&
@@ -423,22 +450,34 @@ public class CampusGenerator : MonoBehaviour
         }
     }
 
+    static readonly string[] ClassroomTableProps = { "table2", "table3" };
+    static readonly string[] ChairProps = { "chair", "chair1" };
+
+    // Board + teacher's desk against the back (exterior) wall; student tables/chairs face it.
     void BuildDesks(Transform parent, float y, float centerX, float bandCenterZ, float width, float depth)
     {
+        float backZ = bandCenterZ + depth * 0.5f; // back exterior wall
+        SpawnProp("board", parent, new Vector3(centerX, y + 2f, backZ - 0.2f), Quaternion.identity);
+
+        float teacherZ = backZ - 1.8f;
+        SpawnProp("table1", parent, new Vector3(centerX, y, teacherZ), Quaternion.identity);
+        SpawnProp("computer", parent, new Vector3(centerX + 0.6f, y + 0.75f, teacherZ), Quaternion.identity);
+
         int cols = 3, rows = 2;
-        float marginX = width * 0.2f, marginZ = depth * 0.25f;
-        float usableW = width - marginX * 2f, usableD = depth - marginZ * 2f;
-        float startX = centerX - usableW * 0.5f;
-        float startZ = bandCenterZ - depth * 0.5f + marginZ;
+        float marginX = width * 0.2f;
+        float usableW = width - marginX * 2f;
+        float rowsStartZ = bandCenterZ - depth * 0.5f + depth * 0.3f;
+        float rowsSpan = Mathf.Max(teacherZ - 2f - rowsStartZ, 1f);
 
         for (int c = 0; c < cols; c++)
         {
             for (int r = 0; r < rows; r++)
             {
-                float dx = startX + usableW * ((c + 0.5f) / cols);
-                float dz = startZ + usableD * ((r + 0.5f) / rows);
-                CreateBox($"Desk_{c}_{r}", parent, new Vector3(dx, y + 0.4f, dz),
-                    new Vector3(1.2f, 0.8f, 0.7f), _matDesk);
+                float dx = centerX - usableW * 0.5f + usableW * ((c + 0.5f) / cols);
+                float dz = rowsStartZ + rowsSpan * ((r + 0.5f) / rows);
+                int variant = c + r * cols;
+                SpawnProp(ClassroomTableProps[variant % ClassroomTableProps.Length], parent, new Vector3(dx, y, dz), Quaternion.identity);
+                SpawnProp(ChairProps[variant % ChairProps.Length], parent, new Vector3(dx, y, dz - 0.7f), Quaternion.identity);
             }
         }
     }
@@ -452,14 +491,21 @@ public class CampusGenerator : MonoBehaviour
         for (int t = 0; t < tables; t++)
         {
             float x = startX + spacing * (t + 1);
-            CreateBox($"Table_{t}", parent, new Vector3(x, y + 0.4f, bandCenterZ),
-                new Vector3(2f, 0.8f, depth * 0.6f), _matDesk);
-            CreateBox($"Bench_{t}_A", parent, new Vector3(x - 1.3f, y + 0.25f, bandCenterZ),
-                new Vector3(0.4f, 0.5f, depth * 0.6f), _matAccent);
-            CreateBox($"Bench_{t}_B", parent, new Vector3(x + 1.3f, y + 0.25f, bandCenterZ),
-                new Vector3(0.4f, 0.5f, depth * 0.6f), _matAccent);
+            SpawnProp("table3", parent, new Vector3(x, y, bandCenterZ), Quaternion.identity);
+            SpawnProp("tray", parent, new Vector3(x - 0.4f, y + 0.75f, bandCenterZ), Quaternion.identity);
+            SpawnProp("tray", parent, new Vector3(x + 0.4f, y + 0.75f, bandCenterZ), Quaternion.identity);
+
+            SpawnProp(ChairProps[t % ChairProps.Length], parent, new Vector3(x, y, bandCenterZ - 1.3f), Quaternion.identity);
+            SpawnProp(ChairProps[(t + 1) % ChairProps.Length], parent, new Vector3(x, y, bandCenterZ + 1.3f), Quaternion.Euler(0f, 180f, 0f));
         }
     }
+
+    static readonly string[] RackProps = { "rack", "rack1" };
+    static readonly string[] BookProps =
+    {
+        "book", "book1", "book2", "book3", "book4", "book5", "book6", "book7", "book8",
+        "book9", "book10", "book11", "book12", "book13", "book14", "book15", "book16",
+    };
 
     void BuildLibraryFurniture(Transform parent, float y, float centerX, float bandCenterZ, float width, float depth)
     {
@@ -467,34 +513,50 @@ public class CampusGenerator : MonoBehaviour
         float spacing = width / (shelves + 1);
         float startX = centerX - width * 0.5f;
         float shelfZ = bandCenterZ - depth * 0.3f;
+        int bookIndex = 0;
 
         for (int s = 0; s < shelves; s++)
         {
             float x = startX + spacing * (s + 1);
-            CreateBox($"Shelf_{s}", parent, new Vector3(x, y + 1f, shelfZ),
-                new Vector3(1f, 2f, 3f), _matShelf);
+            SpawnProp(RackProps[s % RackProps.Length], parent, new Vector3(x, y, shelfZ), Quaternion.identity);
+
+            for (int b = 0; b < 3; b++)
+            {
+                SpawnProp(BookProps[bookIndex % BookProps.Length], parent,
+                    new Vector3(x - 0.6f + b * 0.6f, y + 1.2f, shelfZ + 0.3f), Quaternion.identity);
+                bookIndex++;
+            }
         }
+
+        SpawnProp("showcase", parent, new Vector3(centerX, y, bandCenterZ - depth * 0.45f), Quaternion.identity);
 
         // Reading area: a couple of low tables near the front.
         float readingZ = bandCenterZ + depth * 0.25f;
-        CreateBox("ReadingTable_A", parent, new Vector3(centerX - width * 0.2f, y + 0.35f, readingZ),
-            new Vector3(1.5f, 0.7f, 1.5f), _matDesk);
-        CreateBox("ReadingTable_B", parent, new Vector3(centerX + width * 0.2f, y + 0.35f, readingZ),
-            new Vector3(1.5f, 0.7f, 1.5f), _matDesk);
+        SpawnProp("table1", parent, new Vector3(centerX - width * 0.2f, y, readingZ), Quaternion.identity);
+        SpawnProp("chair", parent, new Vector3(centerX - width * 0.2f, y, readingZ - 0.8f), Quaternion.identity);
+        SpawnProp("table1", parent, new Vector3(centerX + width * 0.2f, y, readingZ), Quaternion.identity);
+        SpawnProp("chair1", parent, new Vector3(centerX + width * 0.2f, y, readingZ - 0.8f), Quaternion.identity);
     }
+
+    static readonly string[] LockerProps =
+    {
+        "locker", "locker1", "locker2", "locker_1", "locker_2", "locker_3", "locker_4", "locker_5",
+    };
 
     void BuildLockers(Transform parent, float y, RoomType[] segments)
     {
         const float lockerZ = 0.4f; // hugging the front wall
-        float bankWidth = 5f;
 
         for (int i = 0; i < segments.Length; i++)
         {
             if (segments[i] == RoomType.Stairwell) continue;
 
-            float cx = -HalfWidth + SegmentWidth * (i + 0.5f);
-            CreateBox($"Lockers_{i}a", parent, new Vector3(cx - SegmentWidth * 0.5f + 1.5f, y + 1f, lockerZ),
-                new Vector3(bankWidth, 2f, 0.6f), _matLocker);
+            float segCenterX = -HalfWidth + SegmentWidth * (i + 0.5f);
+            float x = segCenterX - SegmentWidth * 0.5f + 1.5f;
+            SpawnProp(LockerProps[i % LockerProps.Length], parent, new Vector3(x, y, lockerZ), Quaternion.identity);
+
+            if (i % 2 == 0)
+                SpawnProp("fire", parent, new Vector3(segCenterX + SegmentWidth * 0.3f, y + 1.2f, lockerZ + 0.1f), Quaternion.identity);
         }
     }
 
@@ -620,6 +682,8 @@ public class CampusGenerator : MonoBehaviour
 
             BuildWallWithGap($"HallWall_{i}", annex, roomCenterX, roomWidth,
                 y + FloorHeight * 0.5f, HallwayDepth, FloorHeight, doorWidth, _matWall, true);
+            SpawnProp(i % 2 == 0 ? "a door" : "a door1", annex,
+                new Vector3(roomCenterX - doorWidth * 0.5f - 0.05f, y, HallwayDepth), Quaternion.Euler(0f, 90f, 0f));
 
             if (i > 0)
             {
@@ -774,6 +838,44 @@ public class CampusGenerator : MonoBehaviour
         return go;
     }
 
+    // Instantiates a prop from the imported School Assets pack (Assets/school/Prefabs/Resources/props)
+    // and guarantees it has a collider. Returns null (with a warning, not an error) if the name is missing.
+    static GameObject SpawnProp(string prefabName, Transform parent, Vector3 localPos, Quaternion localRot)
+    {
+        var prefab = Resources.Load<GameObject>("props/" + prefabName);
+        if (prefab == null)
+        {
+            Debug.LogWarning($"CampusGenerator: prop '{prefabName}' not found under Resources/props.");
+            return null;
+        }
+
+        var go = Object.Instantiate(prefab, parent);
+        go.name = prefabName;
+        go.transform.localPosition = localPos;
+        go.transform.localRotation = localRot;
+        EnsurePropCollider(go);
+        return go;
+    }
+
+    static void EnsurePropCollider(GameObject go)
+    {
+        if (go.GetComponentInChildren<Collider>() != null) return;
+
+        var renderers = go.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+
+        Bounds worldBounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) worldBounds.Encapsulate(renderers[i].bounds);
+
+        Vector3 scale = go.transform.lossyScale;
+        var box = go.AddComponent<BoxCollider>();
+        box.center = go.transform.InverseTransformPoint(worldBounds.center);
+        box.size = new Vector3(
+            scale.x != 0f ? worldBounds.size.x / scale.x : worldBounds.size.x,
+            scale.y != 0f ? worldBounds.size.y / scale.y : worldBounds.size.y,
+            scale.z != 0f ? worldBounds.size.z / scale.z : worldBounds.size.z);
+    }
+
     void BuildMaterials()
     {
         _matGround = MakeMaterial(new Color(0.45f, 0.6f, 0.4f));    // grass green
@@ -783,9 +885,6 @@ public class CampusGenerator : MonoBehaviour
         _matAccent = MakeMaterial(new Color(0.55f, 0.38f, 0.24f));  // wood/brown
         _matGlass = MakeMaterial(new Color(0.7f, 0.85f, 0.95f));    // window blue
         _matFence = MakeMaterial(new Color(0.2f, 0.2f, 0.22f));     // dark metal fence
-        _matLocker = MakeMaterial(new Color(0.35f, 0.55f, 0.75f));  // school-blue lockers
-        _matDesk = MakeMaterial(new Color(0.6f, 0.45f, 0.3f));      // wood desks
-        _matShelf = MakeMaterial(new Color(0.45f, 0.32f, 0.2f));    // dark wood shelves
         _matTrunk = MakeMaterial(new Color(0.35f, 0.25f, 0.2f));
         _matCanopy = MakeMaterial(new Color(0.95f, 0.7f, 0.85f));   // sakura pink
         _matGymFloor = MakeMaterial(new Color(0.75f, 0.55f, 0.3f)); // gym court tan

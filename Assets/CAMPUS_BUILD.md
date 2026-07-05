@@ -6,9 +6,24 @@ It also spawns `Player` (with `PrototypePlayerController` + `ThirdPersonCamera`)
 outside the front gate, and hides (not deletes) any pre-existing `School` /
 `AnimeClassroom` objects so nothing overlaps.
 
-This is a **blockout**: primitives (cubes, planes, cylinders, spheres) with flat colors,
-not final art. Scale matches the original `SchoolGenerator` greybox (90 wide x 22 deep
-main building, 4.5 units per floor).
+Structural elements (floors, walls, beams, roofs, ramps) are primitives (cubes) with flat
+colors — not final art. Scale matches the original `SchoolGenerator` greybox (90 wide x
+22 deep main building, 4.5 units per floor).
+
+Furniture and props are real models from the imported **School Assets** pack
+(`Assets/school/`, prop prefabs moved to `Assets/school/Prefabs/Resources/props/` so
+runtime code can `Resources.Load` them by name): desks/tables (`table1`/`table2`/`table3`),
+chairs, chalkboards (`board`, etc.), a teacher's computer, lockers (8 variants), a
+bookshelf (`rack`/`rack1`) with 17 book models, a library `showcase`, cafeteria `tray`s,
+window blinds (`jalousie`), classroom/hallway doors (`a door`/`a door1`), fire
+extinguishers, and a school `bus` parked in the courtyard. `SpawnProp()` in
+`CampusGenerator.cs` adds a `BoxCollider` to any prop that doesn't already have one, so
+everything is solid even though the pack wasn't guaranteed to include collision.
+
+**Prop placement is best-guess** — the pack wasn't authored for this exact layout, so a
+few rotations/positions may need a manual nudge in-editor once you can see them (e.g.
+doors are placed open against the doorway's side wall so they don't block the path; check
+they read correctly rather than clipping).
 
 ## Hierarchy
 
@@ -50,5 +65,9 @@ Campus
 - No NPCs or interactable objects (by design — this pass is collision/walkability only).
 - Stairwell flights are single continuous ramps, not stepped stairs (much more reliable
   for `CharacterController` than boxed steps).
-- Furniture (desks, tables, shelves, bleachers) is static dressing with default primitive
-  colliders — nothing scripted or pickable.
+- Furniture is static dressing (props from the School Assets pack, or primitives where the
+  pack has no equivalent, e.g. cafeteria/bleacher primitives) — nothing scripted or pickable.
+- If the console logs `CampusGenerator: prop 'X' not found under Resources/props`, that
+  prop's prefab name doesn't match what's under `Assets/school/Prefabs/Resources/props/` —
+  check for a naming difference (the pack has some near-duplicate imports like
+  `board2_1 1.prefab`) and update the name in `CampusGenerator.cs`.
