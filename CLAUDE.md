@@ -38,16 +38,26 @@ There's no command-line build/test/lint — everything happens through the Edito
   FBX + textures bundle, not a full pre-built scene like the Backrooms one was) — `GameBootstrap.BuildMap`
   loads it via `Resources.Load`, falling back to a bare temporary plane (`TemporaryGround`) only if that
   load fails.
-- **`Assets/Models/Resources/StudentChan/` is the Player's character model and must not be re-extracted.**
-  It's a Yandere-Simulator-derived base model whose bundled textures had cryptic filenames (`Untitled36...`,
-  `Advgp-h04wu.png`, etc.) that Unity's automatic material search couldn't match — so after `ModelTexturePostprocessor`
-  auto-extracted empty materials, each of the 4 `.mat` files under `StudentChan/Materials/` had its correct
-  texture hand-wired in directly (by GUID) after visually inspecting what each texture actually depicted, and
-  `_Color` reset from a grey 0.4 tint to white. If this FBX ever gets reimported/moved, the postprocessor will
-  regenerate blank materials again and wipe that out — don't touch this file/folder without redoing the
-  texture assignment (see git history on the `.mat` files for the exact GUIDs used, or re-derive by reading
-  the texture images and matching them to `f02_face_00_h` / `f02_hair_00_h` / `f02_schoolwear_210_h_c` (color)
-  / `f02_schoolwear_210_h_s` (shadow map) by content).
+- **`Assets/Models/Resources/MitteltCharacter/` is the current Player/NPC character model**, used by both
+  via `GameBootstrap.BuildCharacterVisual` (`CharacterResourcePath = "MitteltCharacter/Mittelt"`). Imported
+  from a Sketchfab-style FBX+textures bundle (`Mittelt.fbx` + `BodyColor/ClothesColor/Clothes2Color/
+  HairsColor/HeadColor/HeadOutlineMask.png`); `ModelTexturePostprocessor` explicitly sets
+  `animationType = Human` for this path (same as StudentChan below) so `SimpleHumanoidWalkAnimator` has a
+  Humanoid Avatar to drive. **Whether Unity's automatic texture-to-material linking actually worked for this
+  model hasn't been verified in-Editor** — check the `.mat` files under `MitteltCharacter/Materials/` after
+  first import; if any show `_MainTex: {fileID: 0}`, this needs the same manual GUID-wiring treatment
+  documented for StudentChan below (that's the established fix for this exact failure mode in this project).
+- **`Assets/Models/Resources/StudentChan/` is a *former* Player character model, currently unused, but
+  still must not be re-extracted if it's ever wired back in.** It's a Yandere-Simulator-derived base model
+  whose bundled textures had cryptic filenames (`Untitled36...`, `Advgp-h04wu.png`, etc.) that Unity's
+  automatic material search couldn't match — so after `ModelTexturePostprocessor` auto-extracted empty
+  materials, each of the 4 `.mat` files under `StudentChan/Materials/` had its correct texture hand-wired in
+  directly (by GUID) after visually inspecting what each texture actually depicted, and `_Color` reset from a
+  grey 0.4 tint to white. If this FBX ever gets reimported/moved, the postprocessor will regenerate blank
+  materials again and wipe that out — don't touch this file/folder without redoing the texture assignment
+  (see git history on the `.mat` files for the exact GUIDs used, or re-derive by reading the texture images
+  and matching them to `f02_face_00_h` / `f02_hair_00_h` / `f02_schoolwear_210_h_c` (color) /
+  `f02_schoolwear_210_h_s` (shadow map) by content).
 - Requires **zero manual Editor steps** — the user works purely by pressing Play, not by finding menu items:
   - `Assets/Scripts/GameBootstrap.cs` — a runtime `MonoBehaviour` that self-spawns via
     `[RuntimeInitializeOnLoadMethod]` the instant Play starts. Destroys any stale `Player`/`Map`/
@@ -58,12 +68,13 @@ There's no command-line build/test/lint — everything happens through the Edito
     bounding-box center — raycasting down each candidate and confirming via `Physics.CheckCapsule` that the
     player's capsule actually fits there, since the geometric center isn't guaranteed to be open ground (it
     can land inside geometry, which is exactly what got a `CharacterController` stuck once already on a
-    different map). Then spawns `Player` with the `StudentChan` model as its visual (Humanoid `Animator` +
-    `SimpleHumanoidWalkAnimator` for a basic procedural walk) and attaches `ThirdPersonCamera` to
-    `Camera.main` for a 3rd-person view. Writes a bounds breakdown to `GameBootstrap_Diagnostics.txt` in the
-    project root every run — read that file directly rather than guessing at scale/placement problems.
+    different map). Then spawns `Player` with the `MitteltCharacter` model as its visual (Humanoid
+    `Animator` + `SimpleHumanoidWalkAnimator` for a basic procedural walk) and attaches `ThirdPersonCamera`
+    to `Camera.main` for a 3rd-person view. Writes a bounds breakdown to `GameBootstrap_Diagnostics.txt` in
+    the project root every run — read that file directly rather than guessing at scale/placement problems.
   - **Window → Generate Demo Scene** (`SceneSetup.cs`) — older/simpler Editor-menu helper that just
-    (re)creates `Player` + camera as a plain capsule; doesn't use `StudentChan`. Not required for normal use.
+    (re)creates `Player` + camera as a plain capsule; doesn't use the character model at all. Not required
+    for normal use.
   - `Assets/Editor/ModelTexturePostprocessor.cs` — `AssetPostprocessor.OnPreprocessModel`, runs on any FBX
     under `Assets/Models/`: extracts materials to real external assets with textures auto-searched from
     sibling folders (the scripted equivalent of manually clicking "Extract Materials"), since Sketchfab-style
@@ -93,7 +104,8 @@ All auto-run via `[RuntimeInitializeOnLoadMethod]`, no manual setup, same as eve
 - `Assets/Shaders/ToonOutline.shader` + `Assets/Scripts/ToonOutlineApplier.cs` — inverted-hull black outline
   (extrude along normals, cull front faces, flat color). Applied by duplicating each renderer under a
   target into a *sibling* GameObject with the outline shader — the target's own material assignments are
-  never touched. Wired to `StudentChan` in `GameBootstrap.EnsurePlayer` (width `0.0025`) and to the whole map
+  never touched. Wired to the character model in `GameBootstrap.BuildCharacterVisual` (width `0.0025`,
+  applied to both the Player and every `DummyHuman`) and to the whole map
   in `GameBootstrap.BuildMap` (width `0.004` — was `0.0008`, but the whole map sits under a parent scaled
   up 2.2x (`MapScale`), so that rendered far thinner in world space than the same number does on the
   unscaled character; bumped up so it actually reads as an outline against building-sized geometry).
@@ -131,7 +143,7 @@ it's present. Don't assume real multiplayer exists just because `MatchManager` t
   player, and that player always registers first (always Zombie), a match with zero real Humans
   would resolve instantly with nothing to observe. `GameBootstrap.SpawnDummyHumans` spawns 5 of
   these (simple wander + periodic auto-hide, no pathfinding/NavMesh) purely so the Zombie has
-  something to hunt locally, using the same `StudentChan` model as the real Player (via the shared
+  something to hunt locally, using the same `MitteltCharacter` model as the real Player (via the shared
   `GameBootstrap.BuildCharacterVisual` helper) rather than bare capsules. **These are test
   scaffolding — delete them once Photon spawns real networked Humans**, don't mistake them for
   permanent NPCs/AI enemies. When one gets converted, `MatchManager.ConvertToZombie` explicitly
@@ -141,7 +153,7 @@ it's present. Don't assume real multiplayer exists just because `MatchManager` t
   *after* `MatchManager.RegisterPlayer` returns their role (the role isn't known beforehand, so
   these can't be pre-attached). Zombie: 2x speed via `PrototypePlayerController.SpeedMultiplier`,
   green tint via *instanced* materials (`renderer.materials`, not `sharedMaterials` — otherwise
-  every player sharing the StudentChan model would turn green). Human: crouch/hide toggle (`C` key,
+  every player sharing the character model would turn green). Human: crouch/hide toggle (`C` key,
   also callable via `SetHiding` for `DummyHuman`'s AI-driven toggling), shrinks `CharacterController`
   height while hiding.
 - **Spec inconsistency, resolved one way, not silently**: the brief said hiding needs "50m+ radius"
@@ -197,8 +209,9 @@ it's present. Don't assume real multiplayer exists just because `MatchManager` t
 Both camera scripts and `PrototypePlayerController` are designed to be wired together only through
 `EnsurePlayer` in `GameBootstrap.cs` (runtime, auto-run) or `GenerateScene` in `Assets/Editor/SceneSetup.cs`
 (Editor menu, manual) — there are no scene-authored prefabs for `Player` or the camera rig; they're always
-spawned/reconfigured in code. `GameBootstrap.EnsurePlayer` uses the `StudentChan` model as `BodyVisual`
-(falling back to a plain capsule if that Resources load fails); `SceneSetup.cs` still just uses a capsule.
+spawned/reconfigured in code. `GameBootstrap.BuildCharacterVisual` uses the `MitteltCharacter` model as
+`BodyVisual` (falling back to a plain capsule if that Resources load fails); `SceneSetup.cs` still just uses
+a capsule.
 Whichever visual is used, it should be positioned to match `CharacterController.center` (capsule) or pivoted
 at the feet (humanoid rig) — mismatching this makes the visible body float or sink relative to the actual
 collider.

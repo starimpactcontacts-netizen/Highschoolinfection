@@ -21,9 +21,12 @@ public class ModelTexturePostprocessor : AssetPostprocessor
         importer.materialSearch = ModelImporterMaterialSearch.RecursiveUp;
 
         // Character models get a Humanoid rig so Unity generates an Avatar from their skeleton —
-        // required for Animator-driven animation. Architectural models (walls/floors/etc.) don't
-        // have a biped skeleton, so leave those on the default import (Generic/None).
-        if (assetPath.Replace('\\', '/').Contains("Assets/Models/Resources/StudentChan/"))
+        // required for Animator-driven animation (SimpleHumanoidWalkAnimator specifically checks
+        // animator.isHuman and disables itself otherwise). Architectural models (walls/floors/etc.)
+        // don't have a biped skeleton, so leave those on the default import (Generic/None).
+        string normalizedPath = assetPath.Replace('\\', '/');
+        if (normalizedPath.Contains("Assets/Models/Resources/StudentChan/") ||
+            normalizedPath.Contains("Assets/Models/Resources/MitteltCharacter/"))
         {
             importer.animationType = ModelImporterAnimationType.Human;
         }

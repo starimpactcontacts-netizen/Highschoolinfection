@@ -7,9 +7,10 @@ using UnityEngine;
 /// Auto-setup that runs the instant Play starts — no menu commands, no manual steps. Loads the
 /// "YandereSimulatorMap" model, works out where its real floor is from measured bounds (not a
 /// guess), adds colliders for anything the import didn't already collide, and spawns Player
-/// (CharacterController + PrototypePlayerController) standing on it — with the StudentChan model
-/// as its visual (Humanoid Animator + SimpleHumanoidWalkAnimator for a basic procedural walk) and
-/// ThirdPersonCamera on Camera.main for a 3rd-person view.
+/// (CharacterController + PrototypePlayerController) standing on it — with the MitteltCharacter
+/// model as its visual (Humanoid Animator + SimpleHumanoidWalkAnimator for a basic procedural walk)
+/// and ThirdPersonCamera on Camera.main for a 3rd-person view. Every DummyHuman stand-in uses the
+/// same model (BuildCharacterVisual), so NPCs read as actual students too.
 ///
 /// Destroys any stale "Player" left over from a previous session before building a fresh one —
 /// EnsurePlayer only builds the character when no Player exists yet, so without this, an old
@@ -325,10 +326,12 @@ public class GameBootstrap : MonoBehaviour
     static string FormatV(Vector3 v) => $"({v.x:F2}, {v.y:F2}, {v.z:F2})";
 
     // Shared by the real Player and every DummyHuman stand-in, so local-test NPCs read as actual
-    // students rather than bare capsules. Falls back to a capsule only if StudentChan can't load.
+    // students rather than bare capsules. Falls back to a capsule only if the model can't load.
+    const string CharacterResourcePath = "MitteltCharacter/Mittelt";
+
     static void BuildCharacterVisual(Transform parent, Vector3 fallbackCapsuleCenter)
     {
-        var characterPrefab = Resources.Load<GameObject>("StudentChan/StudentChan");
+        var characterPrefab = Resources.Load<GameObject>(CharacterResourcePath);
         if (characterPrefab != null)
         {
             var bodyVisual = Object.Instantiate(characterPrefab, parent);
@@ -341,12 +344,17 @@ public class GameBootstrap : MonoBehaviour
             foreach (var col in bodyVisual.GetComponentsInChildren<Collider>())
                 Object.Destroy(col);
 
+            // Procedural, bone-driven walk cycle (arm/leg swing, knee/elbow bend, spine twist, body
+            // bob) — works on any Humanoid-rigged model via Animator.GetBoneTransform, not something
+            // baked specifically for StudentChan's skeleton. Requires the model imported with
+            // animationType = Human (see Assets/Editor/ModelTexturePostprocessor.cs); disables
+            // itself if the avatar isn't recognized as Humanoid.
             bodyVisual.AddComponent<SimpleHumanoidWalkAnimator>();
             ToonOutlineApplier.Apply(bodyVisual, Color.black);
         }
         else
         {
-            Debug.LogWarning("[GameBootstrap] 'StudentChan' character not found under Resources — using a placeholder capsule.");
+            Debug.LogWarning($"[GameBootstrap] '{CharacterResourcePath}' not found under Resources — using a placeholder capsule.");
             var bodyVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             bodyVisual.name = "BodyVisual";
             bodyVisual.transform.SetParent(parent);
