@@ -12,6 +12,7 @@ public class PrototypePlayerController : MonoBehaviour
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private float runSpeed = 7f;
     [SerializeField] private float gravity = -20f;
+    [SerializeField] private float jumpHeight = 1.2f;
 
     [Header("Turning")]
     [Tooltip("How quickly the character rotates toward its movement direction.")]
@@ -65,9 +66,15 @@ public class PrototypePlayerController : MonoBehaviour
             horizontalMove = moveDir.normalized * targetSpeed;
         }
 
-        // --- Gravity / grounding ---
-        if (controller.isGrounded && verticalVelocity < 0f)
-            verticalVelocity = -2f; // small constant keeps us stuck to the floor
+        // --- Gravity / grounding / jump ---
+        if (controller.isGrounded)
+        {
+            if (verticalVelocity < 0f)
+                verticalVelocity = -2f; // small constant keeps us stuck to the floor
+
+            if (Input.GetKeyDown(KeyCode.Space))
+                verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        }
         verticalVelocity += gravity * Time.deltaTime;
 
         Vector3 velocity = horizontalMove + Vector3.up * verticalVelocity;

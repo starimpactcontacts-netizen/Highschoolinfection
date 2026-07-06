@@ -17,7 +17,7 @@ public class ThirdPersonCamera : MonoBehaviour
 
     [Header("Framing")]
     [Tooltip("Default distance behind the player.")]
-    [SerializeField] private float distance = 4f;
+    [SerializeField] private float distance = 2.75f;
     [Tooltip("Sideways over-the-shoulder offset.")]
     [SerializeField] private float shoulderOffset = 0.7f;
 

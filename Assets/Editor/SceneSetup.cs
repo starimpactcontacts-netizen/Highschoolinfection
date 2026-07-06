@@ -33,7 +33,7 @@ public class SceneSetup
         GameObject bodyVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         bodyVisual.name = "BodyVisual";
         bodyVisual.transform.SetParent(playerGO.transform);
-        bodyVisual.transform.localPosition = Vector3.zero;
+        bodyVisual.transform.localPosition = charController.center; // match the CharacterController's capsule, not the transform origin
         bodyVisual.transform.localScale = new Vector3(1, 1, 1);
         Object.DestroyImmediate(bodyVisual.GetComponent<Collider>());
 
