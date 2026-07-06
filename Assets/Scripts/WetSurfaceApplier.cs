@@ -39,7 +39,7 @@ public static class WetSurfaceApplier
             return;
         }
 
-        int wetCount = 0, metalCount = 0, windowCount = 0, wallCount = 0;
+        int wetCount = 0, metalCount = 0, windowCount = 0, wallCount = 0, nullSlotCount = 0;
 
         foreach (var renderer in root.GetComponentsInChildren<Renderer>())
         {
@@ -49,7 +49,19 @@ public static class WetSurfaceApplier
             for (int i = 0; i < mats.Length; i++)
             {
                 var mat = mats[i];
-                if (mat == null) continue;
+                // A genuinely empty material slot (as opposed to one with a texture-less material)
+                // renders as Unity's built-in magenta "missing material" shader — give it the same
+                // generic building treatment as everything else instead of leaving that showing.
+                if (mat == null)
+                {
+                    var fallback = new Material(wetShader) { name = "MissingSlot_Wet" };
+                    fallback.SetColor("_Color", WallTint);
+                    fallback.SetColor("_ShadowTint", WallShadowTint);
+                    fallback.SetFloat("_Wetness", 0.35f);
+                    mats[i] = fallback;
+                    nullSlotCount++;
+                    continue;
+                }
                 string combined = objName + " " + mat.name.ToLowerInvariant();
                 Color color = mat.HasProperty("_Color") ? mat.GetColor("_Color") : Color.white;
 
@@ -100,7 +112,8 @@ public static class WetSurfaceApplier
             renderer.sharedMaterials = mats;
         }
 
-        Debug.Log($"[WetSurfaceApplier] Ground: {wetCount}, Metal: {metalCount}, Windows: {windowCount}, Walls/generic: {wallCount}.");
+        Debug.Log($"[WetSurfaceApplier] Ground: {wetCount}, Metal: {metalCount}, Windows: {windowCount}, Walls/generic: {wallCount}, " +
+            $"Null slots patched: {nullSlotCount}.");
     }
 
     // Copies not just the texture reference but its tiling scale/offset too — Material.SetTexture
