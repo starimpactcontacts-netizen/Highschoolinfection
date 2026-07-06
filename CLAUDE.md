@@ -92,19 +92,25 @@ All auto-run via `[RuntimeInitializeOnLoadMethod]`, no manual setup, same as eve
   this to `Camera.main` automatically.
 - `Assets/Shaders/ToonOutline.shader` + `Assets/Scripts/ToonOutlineApplier.cs` — inverted-hull black outline
   (extrude along normals, cull front faces, flat color). Applied by duplicating each renderer under a
-  character into a *sibling* GameObject with the outline shader — the character's own material assignments
-  are never touched. Currently only wired to `StudentChan` in `GameBootstrap.EnsurePlayer`; **there is no
-  zombie model in this project** — if "zombie" gameplay gets requested, that's a new asset import, not
-  something already here to reuse.
-- `Assets/Shaders/WetSurface.shader` / `Assets/Shaders/RainWindow.shader` + `Assets/Scripts/WetSurfaceApplier.cs`
-  — wet-ground/metal reflection (reflection-probe-driven Standard surface shader with high smoothness/metallic
-  + a cheap panning-sine ripple normal, no real puddle normal maps) and rain-streaked windows (procedural
-  scrolling rivulet + droplet noise via Emission, no textures). `WetSurfaceApplier.Apply` matches renderers by
-  object/material name (`"floor"`, `"metal"`, `"window"`, etc. — plus `"green"` specifically because this
-  map's actual ground plane material is literally named `"Paint - Metallic (Green)"`, confirmed from
-  `GameBootstrap_Diagnostics.txt`, not a general-purpose rule) and copies each material's existing
-  `_MainTex`/`_Color` over so nothing needs re-texturing. Called from `GameBootstrap.BuildMap` right after the
-  map instantiates.
+  target into a *sibling* GameObject with the outline shader — the target's own material assignments are
+  never touched. Wired to `StudentChan` in `GameBootstrap.EnsurePlayer` (width `0.0025`) and to the whole map
+  in `GameBootstrap.BuildMap` (width `0.0008` — thinner, so building edges read as a subtle line rather than
+  the character's heavier cartoon border). **There is no zombie model in this project** — if "zombie"
+  gameplay gets requested, that's a new asset import, not something already here to reuse.
+- `Assets/Shaders/WetSurface.shader` (opaque: ground/metal/walls) / `Assets/Shaders/RainWindow.shader`
+  (transparent: glass) + `Assets/Scripts/WetSurfaceApplier.cs` — **both use a custom cel-shaded/toon lighting
+  model** (`#pragma surface surf Toon`, a hand-written `LightingToon` function doing a quantized diffuse band
+  + a tight toon specular blob), not PBR `Standard` — that's a deliberate match for the character's stylized
+  look, not an oversight. Wetness/reflection is faked via `Emission` sampling the nearest reflection
+  probe/skybox (`SurfaceOutput`, the struct required for a custom lighting function, has no
+  Metallic/Smoothness slots the way `SurfaceOutputStandard` does) plus a cheap panning-sine ripple normal —
+  no real puddle normal maps or planar reflections. `WetSurfaceApplier.Apply` now categorizes **every**
+  renderer on the map into ground / metal / window / generic-building-surface by object/material name (not
+  just a few hand-picked ones) — plus `"green"`/`"grass"` specifically because this map's actual ground plane
+  material is literally named `"Paint - Metallic (Green)"`, confirmed from `GameBootstrap_Diagnostics.txt`,
+  not a general-purpose rule — and tints each category toward the grey/dark-blue/desaturated storm palette
+  while copying over each material's existing `_MainTex`/`_Color` so nothing needs re-texturing. Called from
+  `GameBootstrap.BuildMap` right after the map instantiates, before the outline pass above.
 
 ## Unity runtime script architecture (`Assets/Scripts/`)
 

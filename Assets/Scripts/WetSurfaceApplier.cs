@@ -1,19 +1,33 @@
 using UnityEngine;
 
 /// <summary>
-/// Finds ground/metal/window-like renderers on the loaded map and swaps their materials to the
-/// wet/rain shaders (Assets/Shaders/WetSurface.shader, Assets/Shaders/RainWindow.shader) —
-/// there's no per-object "this is the floor" flag on an arbitrary imported FBX, so this matches
-/// by object/material name instead. Carries over each material's existing _MainTex/_Color so
-/// none of the already-correct textures need re-linking (the GameBootstrap_Diagnostics.txt dump
-/// showed this map's actual ground plane is a material literally named "Paint - Metallic (Green)",
-/// hence "green" being a ground hint below — it's this map's specific naming, not a general rule).
+/// Puts every renderer on the loaded map through one of two cel-shaded shaders (Assets/Shaders/
+/// WetSurface.shader for opaque surfaces, Assets/Shaders/RainWindow.shader for glass) so the whole
+/// environment reads as the same stylized/toon art direction as the character, instead of a mix
+/// of default-imported PBR materials plus a few hand-picked "wet" ones. There's no per-object
+/// "this is the floor/wall/metal" flag on an arbitrary imported FBX, so this matches by
+/// object/material name — anything that doesn't match a specific category still gets the
+/// generic "building surface" treatment, which is what makes this a *consistent* pass rather than
+/// a partial one. Carries over each material's existing _MainTex/_Color so none of the
+/// already-correct textures need re-linking (the GameBootstrap_Diagnostics.txt dump showed this
+/// map's actual ground plane is a material literally named "Paint - Metallic (Green)", hence
+/// "green" being a ground hint below — it's this map's specific naming, not a general rule).
 /// </summary>
 public static class WetSurfaceApplier
 {
-    static readonly string[] GroundHints = { "floor", "ground", "concrete", "tile", "gravel", "sidewalk", "green" };
-    static readonly string[] MetalHints = { "metal", "silver", "steel", "chrome", "aluminum" };
+    static readonly string[] GroundHints = { "floor", "ground", "concrete", "tile", "gravel", "sidewalk", "grass", "green" };
+    static readonly string[] MetalHints = { "metal", "silver", "steel", "chrome", "aluminum", "railing" };
     static readonly string[] WindowHints = { "window", "glass", "wndw" };
+
+    // Per-category tint: pushes everything toward the requested grey/dark-blue/desaturated
+    // storm palette, distinct enough per surface type to still read as different materials.
+    static readonly Color GroundTint = new Color(0.55f, 0.62f, 0.55f);
+    static readonly Color GroundShadowTint = new Color(0.30f, 0.36f, 0.34f);
+    static readonly Color MetalTint = new Color(0.60f, 0.63f, 0.68f);
+    static readonly Color MetalShadowTint = new Color(0.28f, 0.30f, 0.36f);
+    static readonly Color WallTint = new Color(0.75f, 0.78f, 0.85f);
+    static readonly Color WallShadowTint = new Color(0.45f, 0.48f, 0.58f);
+    static readonly Color WindowShadowTint = new Color(0.5f, 0.55f, 0.65f);
 
     public static void Apply(GameObject root)
     {
@@ -25,13 +39,12 @@ public static class WetSurfaceApplier
             return;
         }
 
-        int wetCount = 0, metalCount = 0, windowCount = 0;
+        int wetCount = 0, metalCount = 0, windowCount = 0, wallCount = 0;
 
         foreach (var renderer in root.GetComponentsInChildren<Renderer>())
         {
             string objName = renderer.gameObject.name.ToLowerInvariant();
             var mats = renderer.sharedMaterials;
-            bool changed = false;
 
             for (int i = 0; i < mats.Length; i++)
             {
@@ -47,33 +60,49 @@ public static class WetSurfaceApplier
                     var newMat = new Material(rainShader) { name = mat.name + "_Rain" };
                     if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
                     newMat.SetColor("_Color", color);
+                    newMat.SetColor("_ShadowTint", WindowShadowTint);
                     mats[i] = newMat;
-                    changed = true; windowCount++;
+                    windowCount++;
                 }
                 else if (ContainsAny(combined, MetalHints))
                 {
                     var newMat = new Material(wetShader) { name = mat.name + "_Wet" };
                     if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
-                    newMat.SetColor("_Color", color);
+                    newMat.SetColor("_Color", color * MetalTint);
+                    newMat.SetColor("_ShadowTint", MetalShadowTint);
                     newMat.SetFloat("_Wetness", 0.95f);
                     mats[i] = newMat;
-                    changed = true; metalCount++;
+                    metalCount++;
                 }
                 else if (ContainsAny(combined, GroundHints))
                 {
                     var newMat = new Material(wetShader) { name = mat.name + "_Wet" };
                     if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
-                    newMat.SetColor("_Color", color);
-                    newMat.SetFloat("_Wetness", 0.75f);
+                    newMat.SetColor("_Color", color * GroundTint);
+                    newMat.SetColor("_ShadowTint", GroundShadowTint);
+                    newMat.SetFloat("_Wetness", 0.8f);
                     mats[i] = newMat;
-                    changed = true; wetCount++;
+                    wetCount++;
+                }
+                else
+                {
+                    // Generic building surface (walls, doors, brick/concrete trim, anything not
+                    // otherwise categorized) — lower wetness than ground puddles, but still cel-shaded
+                    // and rain-damp so nothing is left on the old default-imported material.
+                    var newMat = new Material(wetShader) { name = mat.name + "_Wet" };
+                    if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
+                    newMat.SetColor("_Color", color * WallTint);
+                    newMat.SetColor("_ShadowTint", WallShadowTint);
+                    newMat.SetFloat("_Wetness", 0.35f);
+                    mats[i] = newMat;
+                    wallCount++;
                 }
             }
 
-            if (changed) renderer.sharedMaterials = mats;
+            renderer.sharedMaterials = mats;
         }
 
-        Debug.Log($"[WetSurfaceApplier] Wet shader: {wetCount} ground + {metalCount} metal renderers. Rain shader: {windowCount} window renderers.");
+        Debug.Log($"[WetSurfaceApplier] Ground: {wetCount}, Metal: {metalCount}, Windows: {windowCount}, Walls/generic: {wallCount}.");
     }
 
     static bool ContainsAny(string haystack, string[] needles)

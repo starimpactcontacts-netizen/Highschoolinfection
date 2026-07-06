@@ -14,8 +14,8 @@ using UnityEngine;
 public class StormAtmosphere : MonoBehaviour
 {
     [Header("Lighting")]
-    [SerializeField] private Color lightColor = new Color(0.56f, 0.59f, 0.63f);
-    [SerializeField] private float lightIntensity = 0.65f;
+    [SerializeField] private Color lightColor = new Color(0.62f, 0.65f, 0.68f);
+    [SerializeField] private float lightIntensity = 0.85f; // was 0.65 — too dim to read character detail/color
 
     [Header("Fog / Sky")]
     [SerializeField] private Color stormColor = new Color(0.24f, 0.26f, 0.29f);
@@ -124,16 +124,16 @@ public class StormAtmosphere : MonoBehaviour
 
         var main = rainSystem.main;
         main.loop = true;
-        main.startLifetime = 1.2f;
+        main.startLifetime = 1.5f; // collision usually cuts this short; this is just the max before a despawn with no hit
         main.startSpeed = 0f; // velocity module drives fall speed directly, not this
-        main.startSize = 0.06f;
-        main.startColor = new Color(0.65f, 0.7f, 0.75f, 0.45f);
+        main.startSize = 0.025f;
+        main.startColor = new Color(0.65f, 0.7f, 0.75f, 0.28f);
         main.maxParticles = 4000;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.gravityModifier = 0f;
 
         var emission = rainSystem.emission;
-        emission.rateOverTime = 2500f;
+        emission.rateOverTime = 1200f;
 
         var shape = rainSystem.shape;
         shape.shapeType = ParticleSystemShapeType.Box;
@@ -144,10 +144,23 @@ public class StormAtmosphere : MonoBehaviour
         vel.space = ParticleSystemSimulationSpace.World;
         vel.y = new ParticleSystem.MinMaxCurve(-22f);
 
+        // Without this, rain is just a world-space effect falling in a straight line regardless of
+        // geometry — it doesn't know a roof is overhead, so it fell straight through into any
+        // interior space. Colliding against real world geometry (the map's MeshColliders,
+        // back-filled in GameBootstrap) and killing the particle on impact stops it at rooftops.
+        var collision = rainSystem.collision;
+        collision.enabled = true;
+        collision.type = ParticleSystemCollisionType.World;
+        collision.mode = ParticleSystemCollisionMode.Collision3D;
+        collision.quality = ParticleSystemCollisionQuality.Medium;
+        collision.dampen = new ParticleSystem.MinMaxCurve(1f);
+        collision.lifetimeLoss = new ParticleSystem.MinMaxCurve(1f); // dies immediately on hit — no rain "inside" once it lands on a roof
+        collision.maxCollisionShapes = 512;
+
         var renderer = rainSystem.GetComponent<ParticleSystemRenderer>();
         renderer.renderMode = ParticleSystemRenderMode.Stretch;
-        renderer.velocityScale = 0.08f;
-        renderer.lengthScale = 3f;
+        renderer.velocityScale = 0.05f;
+        renderer.lengthScale = 2f;
 
         Shader particleShader = Shader.Find("Legacy Shaders/Particles/Alpha Blended") ?? Shader.Find("Particles/Alpha Blended");
         if (particleShader != null)

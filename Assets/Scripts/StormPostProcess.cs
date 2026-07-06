@@ -15,7 +15,7 @@ using UnityEngine;
 public class StormPostProcess : MonoBehaviour
 {
     [Header("Color")]
-    [Range(0f, 1f)] public float desaturation = 0.65f;
+    [Range(0f, 1f)] public float desaturation = 0.4f; // was 0.65 — muted the character/textures too much on top of the dim lighting
     public float contrast = 1.2f;
     [Tooltip("Multiplied into the final color — cold blue-grey with a slight sickly green push.")]
     public Color colorTint = new Color(0.80f, 0.90f, 0.86f);

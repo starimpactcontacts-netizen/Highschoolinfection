@@ -19,6 +19,10 @@ using UnityEngine;
 public class GameBootstrap : MonoBehaviour
 {
     const string MapResourcePath = "YandereSimulatorMap/YandereSimulatorMap";
+    // The map reads tiny next to StudentChan (the building's own proportions are fine, it's just
+    // scaled down relative to her) — bump the whole map up rather than shrinking her, since she's
+    // the one whose size should stay "normal human". Adjust this if it's still off.
+    const float MapScale = 2.2f;
 
     void Awake()
     {
@@ -44,6 +48,7 @@ public class GameBootstrap : MonoBehaviour
         }
 
         var map = new GameObject("Map");
+        map.transform.localScale = Vector3.one * MapScale;
         var instance = Object.Instantiate(mapPrefab, map.transform);
         instance.name = "YandereSimulatorMap_Model";
         instance.transform.localPosition = Vector3.zero;
@@ -89,6 +94,9 @@ public class GameBootstrap : MonoBehaviour
         }
 
         WetSurfaceApplier.Apply(instance);
+        // Thinner than the character's outline (0.0025) — building edges should read as a subtle
+        // line, not a heavy cartoon border like her silhouette.
+        ToonOutlineApplier.Apply(instance, Color.black, 0.0008f);
 
         Vector3 spawn = FindSpawnPoint(aggregate);
         Debug.Log($"[GameBootstrap] Loaded map. Added {added} missing colliders. Spawning at {FormatV(spawn)}. " +
