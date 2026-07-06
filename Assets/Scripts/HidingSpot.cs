@@ -110,4 +110,33 @@ public class HidingSpot : MonoBehaviour
             if (spot.Occupied && spot.occupant == player) return spot;
         return null;
     }
+
+    /// <summary>
+    /// Used by MatchManager.ConvertToZombie — if a Human gets touched while mid-hide (frozen,
+    /// invisible), force them out first so the conversion doesn't leave a Zombie stuck in a
+    /// locker's hidden state forever.
+    /// </summary>
+    public static void ForceEjectIfOccupying(Transform player)
+    {
+        var spot = FindOccupiedBy(player);
+        if (spot != null) spot.Eject();
+    }
+
+    /// <summary>Used by GameHUD to show a "press to hide" prompt when a spot is in reach.</summary>
+    public static HidingSpot FindNearbyAvailable(Transform player)
+    {
+        HidingSpot nearest = null;
+        float nearestDist = float.MaxValue;
+        foreach (var spot in FindObjectsByType<HidingSpot>(FindObjectsSortMode.None))
+        {
+            if (spot.Occupied) continue;
+            float dist = Vector3.Distance(player.position, spot.transform.position);
+            if (dist <= spot.interactRange && dist < nearestDist)
+            {
+                nearest = spot;
+                nearestDist = dist;
+            }
+        }
+        return nearest;
+    }
 }

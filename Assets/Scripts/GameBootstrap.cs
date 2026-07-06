@@ -59,13 +59,7 @@ public class GameBootstrap : MonoBehaviour
             // transform.position, so setting position after would compute that from the wrong spot.
             dummy.transform.position = center + offset;
             dummy.AddComponent<DummyHuman>();
-
-            var visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            visual.name = "BodyVisual";
-            visual.transform.SetParent(dummy.transform);
-            visual.transform.localPosition = cc.center;
-            Object.Destroy(visual.GetComponent<Collider>());
-            visual.GetComponent<Renderer>().material.color = new Color(0.8f, 0.75f, 0.65f); // plain skin-ish tone, just to distinguish from the zombie's green tint
+            BuildCharacterVisual(dummy.transform, cc.center);
 
             EnsureMatchManager();
             var role = MatchManager.Instance.RegisterPlayer(dummy.transform);
@@ -327,22 +321,14 @@ public class GameBootstrap : MonoBehaviour
 
     static string FormatV(Vector3 v) => $"({v.x:F2}, {v.y:F2}, {v.z:F2})";
 
-    static void EnsurePlayer(Vector3 spawn)
+    // Shared by the real Player and every DummyHuman stand-in, so local-test NPCs read as actual
+    // students rather than bare capsules. Falls back to a capsule only if StudentChan can't load.
+    static void BuildCharacterVisual(Transform parent, Vector3 fallbackCapsuleCenter)
     {
-        var player = new GameObject("Player");
-
-        var cc = player.AddComponent<CharacterController>();
-        cc.height = 2f;
-        cc.radius = 0.5f;
-        cc.center = new Vector3(0, 1, 0);
-        cc.skinWidth = 0.08f;
-
-        player.AddComponent<PrototypePlayerController>();
-
         var characterPrefab = Resources.Load<GameObject>("StudentChan/StudentChan");
         if (characterPrefab != null)
         {
-            var bodyVisual = Object.Instantiate(characterPrefab, player.transform);
+            var bodyVisual = Object.Instantiate(characterPrefab, parent);
             bodyVisual.name = "BodyVisual";
             bodyVisual.transform.localPosition = Vector3.zero; // humanoid rigs are typically pivoted at the feet
             bodyVisual.transform.localRotation = Quaternion.identity;
@@ -360,10 +346,24 @@ public class GameBootstrap : MonoBehaviour
             Debug.LogWarning("[GameBootstrap] 'StudentChan' character not found under Resources — using a placeholder capsule.");
             var bodyVisual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             bodyVisual.name = "BodyVisual";
-            bodyVisual.transform.SetParent(player.transform);
-            bodyVisual.transform.localPosition = cc.center;
+            bodyVisual.transform.SetParent(parent);
+            bodyVisual.transform.localPosition = fallbackCapsuleCenter;
             Object.Destroy(bodyVisual.GetComponent<Collider>());
         }
+    }
+
+    static void EnsurePlayer(Vector3 spawn)
+    {
+        var player = new GameObject("Player");
+
+        var cc = player.AddComponent<CharacterController>();
+        cc.height = 2f;
+        cc.radius = 0.5f;
+        cc.center = new Vector3(0, 1, 0);
+        cc.skinWidth = 0.08f;
+
+        player.AddComponent<PrototypePlayerController>();
+        BuildCharacterVisual(player.transform, cc.center);
 
         Camera mainCamera = Camera.main;
         if (mainCamera != null)

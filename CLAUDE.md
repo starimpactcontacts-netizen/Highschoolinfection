@@ -111,9 +111,14 @@ All auto-run via `[RuntimeInitializeOnLoadMethod]`, no manual setup, same as eve
 ## Zombie/Human match MVP — NOT networked, Photon is not in this project
 
 `Assets/Scripts/MatchManager.cs` is the full rules engine (lobby -> 3s countdown -> 5min playing ->
-result -> back to lobby, first-registered-player-is-Zombie role assignment, detection radius,
-touch-elimination, win conditions), but **there is no Photon PUN2 (or any networking) in this
-project yet.** The owner has added "PUN 2 - FREE" to their Unity Asset Store account ("My Assets"),
+result -> back to lobby, first-registered-player-is-Zombie role assignment, detection radius, win
+conditions), but **there is no Photon PUN2 (or any networking) in this
+project yet.** **Touched Humans are converted to Zombies, not eliminated/removed** — `ConvertToZombie`
+flips their `PlayerRole`, destroys their `HumanAbility`, and adds `ZombieAbility` so they immediately
+start hunting too (matching "they become zombie" — this replaced an earlier deactivate-on-touch
+design). The Zombie side grows over the course of a match; Zombies win once every Human has been
+converted, Humans win if the timer runs out with at least one still Human. `HumansConverted` is
+the "eaten" stat shown on the result screen. The owner has added "PUN 2 - FREE" to their Unity Asset Store account ("My Assets"),
 but that's just the account entitlement — it still needs to be imported into this actual project via
 Package Manager -> My Assets (or the Asset Store window) inside the Editor before anything under
 `Assets/` reflects it; check `Packages/manifest.json`/`find Assets -iname "*photon*"` before assuming
@@ -124,8 +129,12 @@ it's present. Don't assume real multiplayer exists just because `MatchManager` t
   player, and that player always registers first (always Zombie), a match with zero real Humans
   would resolve instantly with nothing to observe. `GameBootstrap.SpawnDummyHumans` spawns 5 of
   these (simple wander + periodic auto-hide, no pathfinding/NavMesh) purely so the Zombie has
-  something to hunt locally. **These are test scaffolding — delete them once Photon spawns real
-  networked Humans**, don't mistake them for permanent NPCs/AI enemies.
+  something to hunt locally, using the same `StudentChan` model as the real Player (via the shared
+  `GameBootstrap.BuildCharacterVisual` helper) rather than bare capsules. **These are test
+  scaffolding — delete them once Photon spawns real networked Humans**, don't mistake them for
+  permanent NPCs/AI enemies. When one gets converted, `MatchManager.ConvertToZombie` explicitly
+  stops its coroutines and disables the component — otherwise its `HideCycle` coroutine would keep
+  calling `SetHiding` on a `HumanAbility` that conversion just destroyed.
 - `Assets/Scripts/ZombieAbility.cs` / `Assets/Scripts/HumanAbility.cs` — attached to a player
   *after* `MatchManager.RegisterPlayer` returns their role (the role isn't known beforehand, so
   these can't be pre-attached). Zombie: 2x speed via `PrototypePlayerController.SpeedMultiplier`,
@@ -139,7 +148,9 @@ it's present. Don't assume real multiplayer exists just because `MatchManager` t
   opposite: hiding shrinks `MatchManager`'s effective detection radius down to 3m. If that's not
   what was meant, this is the one place to revisit.
 - `Assets/Scripts/GameHUD.cs` — procedural Canvas built at Play time (timer top-center, role badge
-  top-left, player count top-right, "HIDING" bottom-left, full result-screen overlay), driven by
+  top-left, player count top-right, "HIDING" bottom-left, a contextual hide-instruction prompt
+  bottom-center — "Press [C] to hide" or "Press [Left Click] to hide" when a spot's in reach, "Press
+  [C] to stop hiding" while crouched — and a full result-screen overlay), driven by
   `MatchManager.Instance` each frame. Deliberately uses legacy `UnityEngine.UI.Text` with Unity's
   built-in font, not TextMeshPro — TMP needs its "Essentials" resources imported once via a dialog
   before `TextMeshProUGUI` reliably renders anything, and nothing in this project guarantees that's

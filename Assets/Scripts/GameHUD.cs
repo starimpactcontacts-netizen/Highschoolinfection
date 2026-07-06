@@ -14,7 +14,7 @@ using UnityEngine.UI;
 /// </summary>
 public class GameHUD : MonoBehaviour
 {
-    private Text timerText, roleText, playerCountText, hidingText, hideSpotCountdownText;
+    private Text timerText, roleText, playerCountText, hidingText, hideSpotCountdownText, hintText;
     private GameObject resultPanel;
     private Text resultTitleText, resultStatsText, resultCountdownText;
 
@@ -54,6 +54,13 @@ public class GameHUD : MonoBehaviour
             new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 60), new Vector2(300, 60));
         hideSpotCountdownText.color = new Color(1f, 0.85f, 0.3f);
         hideSpotCountdownText.gameObject.SetActive(false);
+
+        // Contextual "what button do I press" prompt — always tells a Human what's available right
+        // now (crouch, or a nearby spot to click into) rather than expecting them to already know.
+        hintText = CreateText(canvas.transform, "InteractHint", font, 26, TextAnchor.LowerCenter,
+            new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 130), new Vector2(500, 40));
+        hintText.color = new Color(0.9f, 0.9f, 0.9f);
+        hintText.gameObject.SetActive(false);
 
         resultPanel = new GameObject("ResultPanel");
         resultPanel.transform.SetParent(canvas.transform, false);
@@ -112,6 +119,7 @@ public class GameHUD : MonoBehaviour
                 playerCountText.text = $"{match.Players.Count}/{match.RequiredPlayers} Players";
                 hidingText.gameObject.SetActive(false);
                 hideSpotCountdownText.gameObject.SetActive(false);
+                hintText.gameObject.SetActive(false);
                 break;
 
             case MatchPhase.Countdown:
@@ -130,7 +138,7 @@ public class GameHUD : MonoBehaviour
                 resultTitleText.text = match.ResultMessage.StartsWith("HUMANS") ? "HUMANS WIN" : "ZOMBIE WINS";
                 resultStatsText.text =
                     $"Time survived: {FormatTime(match.TimeSurvivedAtEnd)}\n" +
-                    $"Humans eaten: {match.HumansEliminated}\n" +
+                    $"Humans turned: {match.HumansConverted}\n" +
                     $"Survivors: {match.HumansAlive}";
                 resultCountdownText.text = $"Returning to lobby in {Mathf.CeilToInt(match.LobbyReturnCountdown)}...";
                 break;
@@ -154,7 +162,30 @@ public class GameHUD : MonoBehaviour
 
         // HumanAbility gets disabled while occupying a HidingSpot (see HidingSpot.Enter) so its own
         // IsHiding doesn't fight the locker's forced state — check the spot first, crouch second.
-        hidingText.gameObject.SetActive(occupiedSpot == null && human != null && human.IsHiding);
+        bool crouching = human != null && human.IsHiding;
+        hidingText.gameObject.SetActive(occupiedSpot == null && crouching);
+
+        // Only Humans need hide prompts — a Zombie has nothing to hide from.
+        if (isZombie || human == null)
+        {
+            hintText.gameObject.SetActive(false);
+            return;
+        }
+
+        if (occupiedSpot != null)
+        {
+            hintText.gameObject.SetActive(false);
+        }
+        else if (HidingSpot.FindNearbyAvailable(localPlayer.transform) != null)
+        {
+            hintText.gameObject.SetActive(true);
+            hintText.text = "Press [Left Click] to hide";
+        }
+        else
+        {
+            hintText.gameObject.SetActive(true);
+            hintText.text = crouching ? "Press [C] to stop hiding" : "Press [C] to hide";
+        }
     }
 
     private static string FormatTime(float seconds)
