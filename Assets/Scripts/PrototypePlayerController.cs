@@ -25,6 +25,9 @@ public class PrototypePlayerController : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private string speedParameter = "Speed";
 
+    /// <summary>Multiplies both move/run speed — e.g. ZombieAbility sets this to 2x.</summary>
+    public float SpeedMultiplier = 1f;
+
     private CharacterController controller;
     private float turnSmoothVelocity;
     private float verticalVelocity;
@@ -44,7 +47,7 @@ public class PrototypePlayerController : MonoBehaviour
         float v = Input.GetAxisRaw("Vertical");
         Vector3 inputDir = new Vector3(h, 0f, v).normalized;
 
-        float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : moveSpeed;
+        float targetSpeed = (Input.GetKey(KeyCode.LeftShift) ? runSpeed : moveSpeed) * SpeedMultiplier;
         Vector3 horizontalMove = Vector3.zero;
 
         if (inputDir.magnitude >= 0.1f)

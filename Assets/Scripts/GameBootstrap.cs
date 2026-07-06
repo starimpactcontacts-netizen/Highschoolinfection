@@ -35,6 +35,50 @@ public class GameBootstrap : MonoBehaviour
 
         Vector3 spawn = BuildMap();
         EnsurePlayer(spawn);
+        SpawnDummyHumans(spawn);
+    }
+
+    // Local-testing-only fill for the Human roster — see DummyHuman.cs for why. Real Photon
+    // players replace this entirely; there's no dummy-vs-real distinction MatchManager needs to
+    // know about, they're just more registered Transforms to it.
+    void SpawnDummyHumans(Vector3 center)
+    {
+        const int dummyCount = 5; // + the 1 real player = MatchManager's requiredPlayers (6)
+        for (int i = 0; i < dummyCount; i++)
+        {
+            Vector3 offset = new Vector3(Random.Range(-10f, 10f), 0f, Random.Range(-10f, 10f));
+            var dummy = new GameObject($"DummyHuman_{i}");
+
+            var cc = dummy.AddComponent<CharacterController>();
+            cc.height = 2f;
+            cc.radius = 0.5f;
+            cc.center = new Vector3(0, 1, 0);
+
+            // Position before adding DummyHuman — its Awake() picks a first wander target from
+            // transform.position, so setting position after would compute that from the wrong spot.
+            dummy.transform.position = center + offset;
+            dummy.AddComponent<DummyHuman>();
+
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            visual.name = "BodyVisual";
+            visual.transform.SetParent(dummy.transform);
+            visual.transform.localPosition = cc.center;
+            Object.Destroy(visual.GetComponent<Collider>());
+            visual.GetComponent<Renderer>().material.color = new Color(0.8f, 0.75f, 0.65f); // plain skin-ish tone, just to distinguish from the zombie's green tint
+
+            EnsureMatchManager();
+            var role = MatchManager.Instance.RegisterPlayer(dummy.transform);
+            // Dummies always register after the real player (added second+), so they're always
+            // Human — but assign defensively from the returned role rather than assuming, in case
+            // spawn order ever changes.
+            if (role == PlayerRole.Zombie) dummy.AddComponent<ZombieAbility>();
+        }
+    }
+
+    static void EnsureMatchManager()
+    {
+        if (MatchManager.Instance == null)
+            new GameObject("MatchManager").AddComponent<MatchManager>();
     }
 
     Vector3 BuildMap()
@@ -211,6 +255,11 @@ public class GameBootstrap : MonoBehaviour
         }
 
         player.transform.position = spawn;
+
+        EnsureMatchManager();
+        var role = MatchManager.Instance.RegisterPlayer(player.transform);
+        if (role == PlayerRole.Zombie) player.AddComponent<ZombieAbility>();
+        else player.AddComponent<HumanAbility>();
     }
 
     // Runs the instant Play starts — this is the only thing the user has to do.

@@ -108,6 +108,46 @@ All auto-run via `[RuntimeInitializeOnLoadMethod]`, no manual setup, same as eve
   call back in without also making it skip/ignore materials that already resolve a real texture, and without
   re-running it in a way that clobbers manual changes on a second Play session.
 
+## Zombie/Human match MVP — NOT networked, Photon is not in this project
+
+`Assets/Scripts/MatchManager.cs` is the full rules engine (lobby -> 3s countdown -> 5min playing ->
+result -> back to lobby, first-registered-player-is-Zombie role assignment, detection radius,
+touch-elimination, win conditions), but **there is no Photon PUN2 (or any networking) in this
+project.** That requires a Photon account + App ID only the project owner can create at
+photonengine.com, and importing the PUN2 package via Unity's Package Manager/Asset Store while
+logged into the owner's Unity account — neither is something achievable without the owner doing it
+first. Don't assume real multiplayer exists just because `MatchManager` talks about "players" —
+every "player" in a running session right now is a local `Transform`, not a network peer.
+
+- `Assets/Scripts/DummyHuman.cs` — since a solo Play session only ever has one real (keyboard-driven)
+  player, and that player always registers first (always Zombie), a match with zero real Humans
+  would resolve instantly with nothing to observe. `GameBootstrap.SpawnDummyHumans` spawns 5 of
+  these (simple wander + periodic auto-hide, no pathfinding/NavMesh) purely so the Zombie has
+  something to hunt locally. **These are test scaffolding — delete them once Photon spawns real
+  networked Humans**, don't mistake them for permanent NPCs/AI enemies.
+- `Assets/Scripts/ZombieAbility.cs` / `Assets/Scripts/HumanAbility.cs` — attached to a player
+  *after* `MatchManager.RegisterPlayer` returns their role (the role isn't known beforehand, so
+  these can't be pre-attached). Zombie: 2x speed via `PrototypePlayerController.SpeedMultiplier`,
+  green tint via *instanced* materials (`renderer.materials`, not `sharedMaterials` — otherwise
+  every player sharing the StudentChan model would turn green). Human: crouch/hide toggle (`C` key,
+  also callable via `SetHiding` for `DummyHuman`'s AI-driven toggling), shrinks `CharacterController`
+  height while hiding.
+- **Spec inconsistency, resolved one way, not silently**: the brief said hiding needs "50m+ radius"
+  to be detected, which taken literally is a *larger* radius than the normal 15m (i.e. easier to
+  detect) — contradicting "harder to detect" in the same sentence. Implemented as the sensible
+  opposite: hiding shrinks `MatchManager`'s effective detection radius down to 3m. If that's not
+  what was meant, this is the one place to revisit.
+- `Assets/Scripts/GameHUD.cs` — procedural Canvas built at Play time (timer top-center, role badge
+  top-left, player count top-right, "HIDING" bottom-left, full result-screen overlay), driven by
+  `MatchManager.Instance` each frame. Deliberately uses legacy `UnityEngine.UI.Text` with Unity's
+  built-in font, not TextMeshPro — TMP needs its "Essentials" resources imported once via a dialog
+  before `TextMeshProUGUI` reliably renders anything, and nothing in this project guarantees that's
+  happened, which matters for something built with zero manual setup steps.
+- `MatchManager.requiredPlayers` defaults to `6` (5 dummies + 1 real player), not the spec's `11` —
+  changing it to 11 today would need 10 more locally-spawned dummies just to fill the lobby, which
+  is purely a local-testing knob. Set it to whatever the real Photon room size should be once that
+  exists.
+
 ## Unity runtime script architecture (`Assets/Scripts/`)
 
 - `PrototypePlayerController.cs` — `CharacterController`-based third-person mover. Reads WASD, moves
