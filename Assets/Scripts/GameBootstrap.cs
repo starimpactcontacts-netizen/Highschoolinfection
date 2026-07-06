@@ -7,7 +7,7 @@ using UnityEngine;
 /// Auto-setup that runs the instant Play starts — no menu commands, no manual steps. Loads the
 /// "YandereSimulatorMap" model, works out where its real floor is from measured bounds (not a
 /// guess), adds colliders for anything the import didn't already collide, and spawns Player
-/// (CharacterController + PrototypePlayerController) standing on it — with the MitteltCharacter
+/// (CharacterController + PrototypePlayerController) standing on it — with the OsanaCharacter
 /// model as its visual (Humanoid Animator + SimpleHumanoidWalkAnimator for a basic procedural walk)
 /// and ThirdPersonCamera on Camera.main for a 3rd-person view. Every DummyHuman stand-in uses the
 /// same model (BuildCharacterVisual), so NPCs read as actual students too.
@@ -327,7 +327,7 @@ public class GameBootstrap : MonoBehaviour
 
     // Shared by the real Player and every DummyHuman stand-in, so local-test NPCs read as actual
     // students rather than bare capsules. Falls back to a capsule only if the model can't load.
-    const string CharacterResourcePath = "MitteltCharacter/Mittelt";
+    const string CharacterResourcePath = "OsanaCharacter/OsanaCharacter";
 
     static void BuildCharacterVisual(Transform parent, Vector3 fallbackCapsuleCenter)
     {

@@ -38,17 +38,27 @@ There's no command-line build/test/lint — everything happens through the Edito
   FBX + textures bundle, not a full pre-built scene like the Backrooms one was) — `GameBootstrap.BuildMap`
   loads it via `Resources.Load`, falling back to a bare temporary plane (`TemporaryGround`) only if that
   load fails.
-- **`Assets/Models/Resources/MitteltCharacter/` is the current Player/NPC character model**, used by both
-  via `GameBootstrap.BuildCharacterVisual` (`CharacterResourcePath = "MitteltCharacter/Mittelt"`). Imported
-  from a Sketchfab-style FBX+textures bundle (`Mittelt.fbx` + `BodyColor/ClothesColor/Clothes2Color/
-  HairsColor/HeadColor/HeadOutlineMask.png`); `ModelTexturePostprocessor` explicitly sets
-  `animationType = Human` for this path (same as StudentChan below) so `SimpleHumanoidWalkAnimator` has a
-  Humanoid Avatar to drive. **Whether Unity's automatic texture-to-material linking actually worked for this
-  model hasn't been verified in-Editor** — check the `.mat` files under `MitteltCharacter/Materials/` after
-  first import; if any show `_MainTex: {fileID: 0}`, this needs the same manual GUID-wiring treatment
-  documented for StudentChan below (that's the established fix for this exact failure mode in this project).
-- **`Assets/Models/Resources/StudentChan/` is a *former* Player character model, currently unused, but
-  still must not be re-extracted if it's ever wired back in.** It's a Yandere-Simulator-derived base model
+- **`Assets/Models/Resources/OsanaCharacter/` is the current Player/NPC character model**, used by both
+  via `GameBootstrap.BuildCharacterVisual` (`CharacterResourcePath = "OsanaCharacter/OsanaCharacter"`).
+  Imported from `tsuns-osana-najimi-idle-yandere-simulator.zip` (the FBX inside was named
+  `OsanaNajimiIdleAnimation.fbx`, renamed to `OsanaCharacter.fbx` to match the folder for
+  `Resources.Load`) + `OsanaUniform.png`/`Tomuu_OsanaHairNew.png`. **The FBX name implies it has a baked
+  idle animation clip — that clip is NOT currently wired into any Animator/AnimatorController**; only
+  `SimpleHumanoidWalkAnimator`'s procedural bone-driven motion is used, same as every character before
+  it. If idle-animation playback while standing still gets requested, the clip is already sitting in this
+  FBX, just unused. `ModelTexturePostprocessor` explicitly sets `animationType = Human` for this path (see
+  `HumanoidCharacterFolders`) so `SimpleHumanoidWalkAnimator` has a Humanoid Avatar to drive.
+  **Whether Unity's automatic texture-to-material linking actually worked for this model hasn't been
+  verified in-Editor** — check the `.mat` files under `OsanaCharacter/Materials/` after first import; if
+  any show `_MainTex: {fileID: 0}`, this needs the same manual GUID-wiring treatment documented for
+  StudentChan below (the established fix for this exact recurring failure mode in this project).
+- **`Assets/Models/Resources/MitteltCharacter/` and `Assets/Models/Resources/StudentChan/` are *former*
+  Player character models, currently unused, but must not be re-extracted if either is ever wired back
+  in.** Unlike every other imported model in this project, **Mittelt's texture auto-linking actually
+  worked correctly on import** — all 5 real materials under `MitteltCharacter/Materials/` got their GUIDs
+  wired automatically (verified by reading the `.mat` files directly); the one with a blank `_MainTex`
+  (`Outline.mat`) is a legitimate flat-black material for the model's own built-in outline mesh, not a
+  failure. StudentChan is a Yandere-Simulator-derived base model
   whose bundled textures had cryptic filenames (`Untitled36...`, `Advgp-h04wu.png`, etc.) that Unity's
   automatic material search couldn't match — so after `ModelTexturePostprocessor` auto-extracted empty
   materials, each of the 4 `.mat` files under `StudentChan/Materials/` had its correct texture hand-wired in
@@ -68,7 +78,7 @@ There's no command-line build/test/lint — everything happens through the Edito
     bounding-box center — raycasting down each candidate and confirming via `Physics.CheckCapsule` that the
     player's capsule actually fits there, since the geometric center isn't guaranteed to be open ground (it
     can land inside geometry, which is exactly what got a `CharacterController` stuck once already on a
-    different map). Then spawns `Player` with the `MitteltCharacter` model as its visual (Humanoid
+    different map). Then spawns `Player` with the `OsanaCharacter` model as its visual (Humanoid
     `Animator` + `SimpleHumanoidWalkAnimator` for a basic procedural walk) and attaches `ThirdPersonCamera`
     to `Camera.main` for a 3rd-person view. Writes a bounds breakdown to `GameBootstrap_Diagnostics.txt` in
     the project root every run — read that file directly rather than guessing at scale/placement problems.
@@ -143,7 +153,7 @@ it's present. Don't assume real multiplayer exists just because `MatchManager` t
   player, and that player always registers first (always Zombie), a match with zero real Humans
   would resolve instantly with nothing to observe. `GameBootstrap.SpawnDummyHumans` spawns 5 of
   these (simple wander + periodic auto-hide, no pathfinding/NavMesh) purely so the Zombie has
-  something to hunt locally, using the same `MitteltCharacter` model as the real Player (via the shared
+  something to hunt locally, using the same `OsanaCharacter` model as the real Player (via the shared
   `GameBootstrap.BuildCharacterVisual` helper) rather than bare capsules. **These are test
   scaffolding — delete them once Photon spawns real networked Humans**, don't mistake them for
   permanent NPCs/AI enemies. When one gets converted, `MatchManager.ConvertToZombie` explicitly
@@ -209,7 +219,7 @@ it's present. Don't assume real multiplayer exists just because `MatchManager` t
 Both camera scripts and `PrototypePlayerController` are designed to be wired together only through
 `EnsurePlayer` in `GameBootstrap.cs` (runtime, auto-run) or `GenerateScene` in `Assets/Editor/SceneSetup.cs`
 (Editor menu, manual) — there are no scene-authored prefabs for `Player` or the camera rig; they're always
-spawned/reconfigured in code. `GameBootstrap.BuildCharacterVisual` uses the `MitteltCharacter` model as
+spawned/reconfigured in code. `GameBootstrap.BuildCharacterVisual` uses the `OsanaCharacter` model as
 `BodyVisual` (falling back to a plain capsule if that Resources load fails); `SceneSetup.cs` still just uses
 a capsule.
 Whichever visual is used, it should be positioned to match `CharacterController.center` (capsule) or pivoted

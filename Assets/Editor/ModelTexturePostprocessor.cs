@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEditor;
 
 /// <summary>
@@ -11,22 +12,30 @@ using UnityEditor;
 /// </summary>
 public class ModelTexturePostprocessor : AssetPostprocessor
 {
+    // Character models get a Humanoid rig so Unity generates an Avatar from their skeleton —
+    // required for Animator-driven animation (SimpleHumanoidWalkAnimator specifically checks
+    // animator.isHuman and disables itself otherwise). Architectural models (walls/floors/etc.)
+    // don't have a biped skeleton, so leave those on the default import (Generic/None). Former
+    // Player models (StudentChan, MitteltCharacter) are kept in this list even after being swapped
+    // out — if one ever gets wired back in, it still needs this to work.
+    static readonly string[] HumanoidCharacterFolders =
+    {
+        "Assets/Models/Resources/StudentChan/",
+        "Assets/Models/Resources/MitteltCharacter/",
+        "Assets/Models/Resources/OsanaCharacter/",
+    };
+
     void OnPreprocessModel()
     {
-        if (!assetPath.Replace('\\', '/').Contains("Assets/Models/")) return;
+        string normalizedPath = assetPath.Replace('\\', '/');
+        if (!normalizedPath.Contains("Assets/Models/")) return;
 
         var importer = (ModelImporter)assetImporter;
         importer.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
         importer.materialLocation = ModelImporterMaterialLocation.External;
         importer.materialSearch = ModelImporterMaterialSearch.RecursiveUp;
 
-        // Character models get a Humanoid rig so Unity generates an Avatar from their skeleton —
-        // required for Animator-driven animation (SimpleHumanoidWalkAnimator specifically checks
-        // animator.isHuman and disables itself otherwise). Architectural models (walls/floors/etc.)
-        // don't have a biped skeleton, so leave those on the default import (Generic/None).
-        string normalizedPath = assetPath.Replace('\\', '/');
-        if (normalizedPath.Contains("Assets/Models/Resources/StudentChan/") ||
-            normalizedPath.Contains("Assets/Models/Resources/MitteltCharacter/"))
+        if (HumanoidCharacterFolders.Any(normalizedPath.Contains))
         {
             importer.animationType = ModelImporterAnimationType.Human;
         }
