@@ -14,7 +14,7 @@ using UnityEngine.UI;
 /// </summary>
 public class GameHUD : MonoBehaviour
 {
-    private Text timerText, roleText, playerCountText, hidingText, hideSpotCountdownText, hintText;
+    private Text timerText, roleText, playerCountText, survivorCountText, hidingText, hideSpotCountdownText, hintText;
     private GameObject resultPanel;
     private Text resultTitleText, resultStatsText, resultCountdownText;
 
@@ -37,6 +37,11 @@ public class GameHUD : MonoBehaviour
 
         timerText = CreateText(canvas.transform, "Timer", font, 54, TextAnchor.UpperCenter,
             new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -30), new Vector2(400, 70));
+
+        // Same treatment as the timer (top-center, large, always visible during play) — how many
+        // Humans are left to convert vs how many Zombies are hunting them right now.
+        survivorCountText = CreateText(canvas.transform, "SurvivorCount", font, 34, TextAnchor.UpperCenter,
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -100), new Vector2(500, 50));
 
         roleText = CreateText(canvas.transform, "RoleBadge", font, 30, TextAnchor.UpperLeft,
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24, -24), new Vector2(300, 45));
@@ -117,6 +122,7 @@ public class GameHUD : MonoBehaviour
                 timerText.text = "";
                 roleText.text = "Waiting for players...";
                 playerCountText.text = $"{match.Players.Count}/{match.RequiredPlayers} Players";
+                survivorCountText.gameObject.SetActive(false);
                 hidingText.gameObject.SetActive(false);
                 hideSpotCountdownText.gameObject.SetActive(false);
                 hintText.gameObject.SetActive(false);
@@ -125,11 +131,15 @@ public class GameHUD : MonoBehaviour
             case MatchPhase.Countdown:
                 timerText.text = $"MATCH STARTING IN {Mathf.CeilToInt(match.CountdownRemaining)}...";
                 playerCountText.text = $"{match.Players.Count}/{match.RequiredPlayers} Players";
+                survivorCountText.gameObject.SetActive(true);
+                survivorCountText.text = $"Humans: {match.HumansAlive}   Zombies: {match.Players.Count - match.HumansAlive}";
                 break;
 
             case MatchPhase.Playing:
                 timerText.text = FormatTime(match.TimeRemaining);
                 playerCountText.text = $"{match.Players.Count}/{match.RequiredPlayers} Players";
+                survivorCountText.gameObject.SetActive(true);
+                survivorCountText.text = $"Humans: {match.HumansAlive}   Zombies: {match.Players.Count - match.HumansAlive}";
                 UpdateLocalPlayerStatus();
                 break;
 
