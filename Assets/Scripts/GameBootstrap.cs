@@ -93,7 +93,12 @@ public class GameBootstrap : MonoBehaviour
             }
         }
 
-        WetSurfaceApplier.Apply(instance);
+        // WetSurfaceApplier is NOT called anymore — it replaced every renderer's material at Play
+        // time with a new one, and any material whose texture it couldn't detect (including
+        // anything manually assigned/swapped in the Editor afterward) silently fell back to a flat
+        // color. That fought directly against actually placing/texturing things by hand. If the
+        // wet/toon look comes back, it needs to only touch materials that already resolve a real
+        // texture, and never on a re-run that would clobber manual changes.
         // Thinner than the character's outline (0.0025) — building edges should read as a subtle
         // line, not a heavy cartoon border like her silhouette.
         ToonOutlineApplier.Apply(instance, Color.black, 0.0008f);

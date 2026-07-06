@@ -98,19 +98,15 @@ All auto-run via `[RuntimeInitializeOnLoadMethod]`, no manual setup, same as eve
   the character's heavier cartoon border). **There is no zombie model in this project** — if "zombie"
   gameplay gets requested, that's a new asset import, not something already here to reuse.
 - `Assets/Shaders/WetSurface.shader` (opaque: ground/metal/walls) / `Assets/Shaders/RainWindow.shader`
-  (transparent: glass) + `Assets/Scripts/WetSurfaceApplier.cs` — **both use a custom cel-shaded/toon lighting
-  model** (`#pragma surface surf Toon`, a hand-written `LightingToon` function doing a quantized diffuse band
-  + a tight toon specular blob), not PBR `Standard` — that's a deliberate match for the character's stylized
-  look, not an oversight. Wetness/reflection is faked via `Emission` sampling the nearest reflection
-  probe/skybox (`SurfaceOutput`, the struct required for a custom lighting function, has no
-  Metallic/Smoothness slots the way `SurfaceOutputStandard` does) plus a cheap panning-sine ripple normal —
-  no real puddle normal maps or planar reflections. `WetSurfaceApplier.Apply` now categorizes **every**
-  renderer on the map into ground / metal / window / generic-building-surface by object/material name (not
-  just a few hand-picked ones) — plus `"green"`/`"grass"` specifically because this map's actual ground plane
-  material is literally named `"Paint - Metallic (Green)"`, confirmed from `GameBootstrap_Diagnostics.txt`,
-  not a general-purpose rule — and tints each category toward the grey/dark-blue/desaturated storm palette
-  while copying over each material's existing `_MainTex`/`_Color` so nothing needs re-texturing. Called from
-  `GameBootstrap.BuildMap` right after the map instantiates, before the outline pass above.
+  (transparent: glass) + `Assets/Scripts/WetSurfaceApplier.cs` — a custom cel-shaded/toon lighting model
+  (`#pragma surface surf Toon`) with fake wet reflection via `Emission`. **`WetSurfaceApplier.Apply` is NOT
+  called from `GameBootstrap` anymore** — it replaced every renderer's material on the map at Play time, and
+  for any material where it couldn't resolve a real `_MainTex` (including anything manually assigned/swapped
+  in the Editor afterward) it silently fell back to the shader's default flat white texture × tint, i.e. a
+  solid color block. That directly fought against actually placing/texturing objects by hand, which is why it
+  got pulled. The shader/applier files are still here in case this comes back, but don't wire the `Apply`
+  call back in without also making it skip/ignore materials that already resolve a real texture, and without
+  re-running it in a way that clobbers manual changes on a second Play session.
 
 ## Unity runtime script architecture (`Assets/Scripts/`)
 
