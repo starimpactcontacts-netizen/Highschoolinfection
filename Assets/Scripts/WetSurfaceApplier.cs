@@ -51,14 +51,12 @@ public static class WetSurfaceApplier
                 var mat = mats[i];
                 if (mat == null) continue;
                 string combined = objName + " " + mat.name.ToLowerInvariant();
-
-                Texture mainTex = mat.HasProperty("_MainTex") ? mat.GetTexture("_MainTex") : null;
                 Color color = mat.HasProperty("_Color") ? mat.GetColor("_Color") : Color.white;
 
                 if (ContainsAny(combined, WindowHints))
                 {
                     var newMat = new Material(rainShader) { name = mat.name + "_Rain" };
-                    if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
+                    CopyMainTex(mat, newMat);
                     newMat.SetColor("_Color", color);
                     newMat.SetColor("_ShadowTint", WindowShadowTint);
                     mats[i] = newMat;
@@ -67,7 +65,7 @@ public static class WetSurfaceApplier
                 else if (ContainsAny(combined, MetalHints))
                 {
                     var newMat = new Material(wetShader) { name = mat.name + "_Wet" };
-                    if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
+                    CopyMainTex(mat, newMat);
                     newMat.SetColor("_Color", color * MetalTint);
                     newMat.SetColor("_ShadowTint", MetalShadowTint);
                     newMat.SetFloat("_Wetness", 0.95f);
@@ -77,7 +75,7 @@ public static class WetSurfaceApplier
                 else if (ContainsAny(combined, GroundHints))
                 {
                     var newMat = new Material(wetShader) { name = mat.name + "_Wet" };
-                    if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
+                    CopyMainTex(mat, newMat);
                     newMat.SetColor("_Color", color * GroundTint);
                     newMat.SetColor("_ShadowTint", GroundShadowTint);
                     newMat.SetFloat("_Wetness", 0.8f);
@@ -90,7 +88,7 @@ public static class WetSurfaceApplier
                     // otherwise categorized) — lower wetness than ground puddles, but still cel-shaded
                     // and rain-damp so nothing is left on the old default-imported material.
                     var newMat = new Material(wetShader) { name = mat.name + "_Wet" };
-                    if (mainTex != null) newMat.SetTexture("_MainTex", mainTex);
+                    CopyMainTex(mat, newMat);
                     newMat.SetColor("_Color", color * WallTint);
                     newMat.SetColor("_ShadowTint", WallShadowTint);
                     newMat.SetFloat("_Wetness", 0.35f);
@@ -103,6 +101,20 @@ public static class WetSurfaceApplier
         }
 
         Debug.Log($"[WetSurfaceApplier] Ground: {wetCount}, Metal: {metalCount}, Windows: {windowCount}, Walls/generic: {wallCount}.");
+    }
+
+    // Copies not just the texture reference but its tiling scale/offset too — Material.SetTexture
+    // alone drops those, which would silently undo any tiling set on the source material (e.g. a
+    // ground texture meant to repeat 15x across a large plane would default back to a single
+    // stretched, blurry copy otherwise).
+    static void CopyMainTex(Material from, Material to)
+    {
+        if (!from.HasProperty("_MainTex")) return;
+        Texture tex = from.GetTexture("_MainTex");
+        if (tex == null) return;
+        to.SetTexture("_MainTex", tex);
+        to.SetTextureScale("_MainTex", from.GetTextureScale("_MainTex"));
+        to.SetTextureOffset("_MainTex", from.GetTextureOffset("_MainTex"));
     }
 
     static bool ContainsAny(string haystack, string[] needles)
