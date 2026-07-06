@@ -33,9 +33,10 @@ public class GameBootstrap : MonoBehaviour
         var staleMap = GameObject.Find("Map");
         if (staleMap != null) Object.Destroy(staleMap);
 
-        Vector3 spawn = BuildMap();
+        Vector3 spawn = BuildMap(out Bounds mapBounds);
         EnsurePlayer(spawn);
         SpawnDummyHumans(spawn);
+        SpawnHidingSpots(mapBounds);
     }
 
     // Local-testing-only fill for the Human roster — see DummyHuman.cs for why. Real Photon
@@ -75,20 +76,85 @@ public class GameBootstrap : MonoBehaviour
         }
     }
 
+    // Spawns clickable hiding spots (lockers + simple cabinet stand-ins, since there's only one
+    // hideable-furniture asset in the project) spread across confirmed-clear points on the map.
+    // "In the hallways" specifically isn't achievable — see FindClearPointsForProps for why there's
+    // no semantic hallway label to target — so these are just spread across open floor generally.
+    void SpawnHidingSpots(Bounds mapBounds)
+    {
+        const int spotCount = 10;
+        const float minSpacing = 6f;
+        const float lockerScale = 1f; // untested against the map's real scale — adjust if lockers read as tiny/huge next to the building
+
+        var points = FindClearPointsForProps(mapBounds, spotCount, minSpacing);
+        if (points.Count == 0)
+        {
+            Debug.LogWarning("[GameBootstrap] Couldn't find any clear points for hiding spots — skipping.");
+            return;
+        }
+
+        var lockerPrefab = Resources.Load<GameObject>("SchoolLocker/SchoolLocker");
+        if (lockerPrefab == null)
+            Debug.LogWarning("[GameBootstrap] 'SchoolLocker' not found under Resources — using plain cabinet boxes for every hiding spot instead.");
+
+        for (int i = 0; i < points.Count; i++)
+        {
+            GameObject spot;
+            bool useLocker = lockerPrefab != null && i % 2 == 0; // alternate locker / plain cabinet for some visual variety
+
+            if (useLocker)
+            {
+                spot = Object.Instantiate(lockerPrefab);
+                spot.name = $"HidingSpot_Locker_{i}";
+                spot.transform.localScale = Vector3.one * lockerScale;
+
+                var col = spot.GetComponentInChildren<Collider>();
+                if (col == null)
+                {
+                    var renderers = spot.GetComponentsInChildren<Renderer>();
+                    if (renderers.Length > 0)
+                    {
+                        Bounds b = renderers[0].bounds;
+                        foreach (var r in renderers) b.Encapsulate(r.bounds);
+                        var box = spot.AddComponent<BoxCollider>();
+                        box.center = spot.transform.InverseTransformPoint(b.center);
+                        box.size = b.size;
+                    }
+                }
+            }
+            else
+            {
+                // Plain cabinet/desk-nook stand-in — there's no second hideable furniture asset in
+                // the project, so this is a simple primitive rather than a matching model.
+                spot = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                spot.name = $"HidingSpot_Cabinet_{i}";
+                spot.transform.localScale = new Vector3(1.2f, 1.8f, 0.8f);
+                spot.GetComponent<Renderer>().material.color = new Color(0.5f, 0.4f, 0.3f);
+            }
+
+            spot.transform.position = points[i] + Vector3.up * (useLocker ? 0f : 0.9f);
+            spot.AddComponent<HidingSpot>();
+        }
+
+        Debug.Log($"[GameBootstrap] Spawned {points.Count} hiding spots.");
+    }
+
     static void EnsureMatchManager()
     {
         if (MatchManager.Instance == null)
             new GameObject("MatchManager").AddComponent<MatchManager>();
     }
 
-    Vector3 BuildMap()
+    Vector3 BuildMap(out Bounds aggregateBounds)
     {
         var mapPrefab = Resources.Load<GameObject>(MapResourcePath);
         if (mapPrefab == null)
         {
             Debug.LogError($"[GameBootstrap] Couldn't find '{MapResourcePath}' under any Resources folder — " +
                 "falling back to a temporary flat plane. Check Assets/Models/Resources/YandereSimulatorMap/ exists.");
-            return BuildTemporaryGround();
+            Vector3 tempSpawn = BuildTemporaryGround();
+            aggregateBounds = new Bounds(tempSpawn, new Vector3(20f, 2f, 20f));
+            return tempSpawn;
         }
 
         var map = new GameObject("Map");
@@ -106,11 +172,14 @@ public class GameBootstrap : MonoBehaviour
         if (renderers.Length == 0)
         {
             Debug.LogError("[GameBootstrap] Map model has no MeshRenderers — falling back to a temporary flat plane.");
-            return BuildTemporaryGround();
+            Vector3 tempSpawn = BuildTemporaryGround();
+            aggregateBounds = new Bounds(tempSpawn, new Vector3(20f, 2f, 20f));
+            return tempSpawn;
         }
 
         Bounds aggregate = renderers[0].bounds;
         foreach (var r in renderers) aggregate.Encapsulate(r.bounds);
+        aggregateBounds = aggregate;
 
         string diagPath = Path.Combine(Application.dataPath, "..", "GameBootstrap_Diagnostics.txt");
         var diag = new StringBuilder();
@@ -202,6 +271,58 @@ public class GameBootstrap : MonoBehaviour
         Debug.LogWarning("[GameBootstrap] Couldn't find a confirmed-clear spawn point after searching — " +
             "falling back to the raw bounding-box center, which may still be inside geometry.");
         return new Vector3(aggregate.center.x, aggregate.min.y + 1f, aggregate.center.z);
+    }
+
+    // Same ring-search + capsule-clearance technique as FindSpawnPoint, but collects up to `count`
+    // points instead of stopping at the first, spaced at least minSpacing apart so hiding spots
+    // don't cluster in one corner. There's no semantic "hallway" label on this map's geometry (its
+    // submeshes are named generically, e.g. "Body152" — nothing to pattern-match on the way
+    // material names worked for ground/wall categorization earlier), so "confirmed walkable ground,
+    // spread across the map" is the closest achievable approximation to "in the hallways" without
+    // that labeling. May need manual repositioning in the Editor if a spot lands somewhere odd.
+    static System.Collections.Generic.List<Vector3> FindClearPointsForProps(Bounds aggregate, int count, float minSpacing)
+    {
+        const float capsuleRadius = 0.5f;
+        const float capsuleHeight = 2f;
+        var found = new System.Collections.Generic.List<Vector3>();
+
+        int rings = 20;
+        float maxRadius = Mathf.Max(aggregate.extents.x, aggregate.extents.z);
+
+        for (int ring = 1; ring <= rings && found.Count < count; ring++)
+        {
+            float ringRadius = maxRadius * ring / rings;
+            int pointsInRing = 10;
+
+            for (int p = 0; p < pointsInRing && found.Count < count; p++)
+            {
+                float angle = p * Mathf.PI * 2f / pointsInRing;
+                float x = aggregate.center.x + Mathf.Cos(angle) * ringRadius;
+                float z = aggregate.center.z + Mathf.Sin(angle) * ringRadius;
+
+                Vector3 rayStart = new Vector3(x, aggregate.max.y + 5f, z);
+                if (!Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, aggregate.size.y + 10f))
+                    continue;
+
+                Vector3 candidateCenter = hit.point + Vector3.up * (capsuleHeight * 0.5f + 0.05f);
+                Vector3 capsuleBottom = candidateCenter + Vector3.up * (capsuleRadius - capsuleHeight * 0.5f);
+                Vector3 capsuleTop = candidateCenter + Vector3.up * (capsuleHeight * 0.5f - capsuleRadius);
+                if (Physics.CheckCapsule(capsuleBottom, capsuleTop, capsuleRadius * 0.95f))
+                    continue;
+
+                Vector3 point = hit.point;
+                bool tooClose = false;
+                foreach (var existing in found)
+                {
+                    if (Vector3.Distance(existing, point) < minSpacing) { tooClose = true; break; }
+                }
+                if (tooClose) continue;
+
+                found.Add(point);
+            }
+        }
+
+        return found;
     }
 
     static string FormatV(Vector3 v) => $"({v.x:F2}, {v.y:F2}, {v.z:F2})";

@@ -113,11 +113,12 @@ All auto-run via `[RuntimeInitializeOnLoadMethod]`, no manual setup, same as eve
 `Assets/Scripts/MatchManager.cs` is the full rules engine (lobby -> 3s countdown -> 5min playing ->
 result -> back to lobby, first-registered-player-is-Zombie role assignment, detection radius,
 touch-elimination, win conditions), but **there is no Photon PUN2 (or any networking) in this
-project.** That requires a Photon account + App ID only the project owner can create at
-photonengine.com, and importing the PUN2 package via Unity's Package Manager/Asset Store while
-logged into the owner's Unity account — neither is something achievable without the owner doing it
-first. Don't assume real multiplayer exists just because `MatchManager` talks about "players" —
-every "player" in a running session right now is a local `Transform`, not a network peer.
+project yet.** The owner has added "PUN 2 - FREE" to their Unity Asset Store account ("My Assets"),
+but that's just the account entitlement — it still needs to be imported into this actual project via
+Package Manager -> My Assets (or the Asset Store window) inside the Editor before anything under
+`Assets/` reflects it; check `Packages/manifest.json`/`find Assets -iname "*photon*"` before assuming
+it's present. Don't assume real multiplayer exists just because `MatchManager` talks about
+"players" — every "player" in a running session right now is a local `Transform`, not a network peer.
 
 - `Assets/Scripts/DummyHuman.cs` — since a solo Play session only ever has one real (keyboard-driven)
   player, and that player always registers first (always Zombie), a match with zero real Humans
@@ -147,6 +148,23 @@ every "player" in a running session right now is a local `Transform`, not a netw
   changing it to 11 today would need 10 more locally-spawned dummies just to fill the lobby, which
   is purely a local-testing knob. Set it to whatever the real Photon room size should be once that
   exists.
+- `Assets/Scripts/HidingSpot.cs` — clickable hide-in-place props (lockers, cabinet stand-ins) with a
+  hard 10s cap, distinct from `HumanAbility`'s crouch: entering freezes movement, disables the
+  player's renderers (fully invisible, not just crouched), and calls `HumanAbility.SetHiding(true)`
+  then **disables** the `HumanAbility` component itself so its own `C`-key toggle can't fight the
+  locker's forced state while occupied. Ejects automatically at 10s or on a second click; not gated
+  on facing the object, just proximity (`interactRange`) + left-click — a raycast/hover-click model
+  doesn't really work here since `ThirdPersonCamera` locks the cursor to screen center during
+  gameplay. `GameBootstrap.SpawnHidingSpots` places these using `FindClearPointsForProps` (the same
+  ring-search-plus-capsule-check technique as the player's own spawn point, extended to collect
+  several spaced-apart points instead of just the first). **There's no way to target "the hallways"
+  specifically** — this map's submeshes have generic auto-generated names (`Body152` etc.), not the
+  descriptive material names that made ground/wall categorization possible elsewhere — so spots land
+  on confirmed-clear floor generally, which may need manual repositioning in the Editor.
+- `Assets/Models/Resources/SchoolLocker/` — moved here from `Assets/Models/SchoolLocker/` so
+  `Resources.Load` can find it at runtime (matches the `StudentChan`/`YandereSimulatorMap`
+  convention). Its scale relative to the map is untested/unverified — see `lockerScale` in
+  `GameBootstrap.SpawnHidingSpots` if lockers read as the wrong size next to the building.
 
 ## Unity runtime script architecture (`Assets/Scripts/`)
 

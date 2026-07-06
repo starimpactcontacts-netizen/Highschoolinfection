@@ -14,7 +14,7 @@ using UnityEngine.UI;
 /// </summary>
 public class GameHUD : MonoBehaviour
 {
-    private Text timerText, roleText, playerCountText, hidingText;
+    private Text timerText, roleText, playerCountText, hidingText, hideSpotCountdownText;
     private GameObject resultPanel;
     private Text resultTitleText, resultStatsText, resultCountdownText;
 
@@ -49,6 +49,11 @@ public class GameHUD : MonoBehaviour
         hidingText.color = Color.green;
         hidingText.text = "HIDING";
         hidingText.gameObject.SetActive(false);
+
+        hideSpotCountdownText = CreateText(canvas.transform, "HideSpotCountdown", font, 46, TextAnchor.LowerCenter,
+            new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 60), new Vector2(300, 60));
+        hideSpotCountdownText.color = new Color(1f, 0.85f, 0.3f);
+        hideSpotCountdownText.gameObject.SetActive(false);
 
         resultPanel = new GameObject("ResultPanel");
         resultPanel.transform.SetParent(canvas.transform, false);
@@ -106,6 +111,7 @@ public class GameHUD : MonoBehaviour
                 roleText.text = "Waiting for players...";
                 playerCountText.text = $"{match.Players.Count}/{match.RequiredPlayers} Players";
                 hidingText.gameObject.SetActive(false);
+                hideSpotCountdownText.gameObject.SetActive(false);
                 break;
 
             case MatchPhase.Countdown:
@@ -140,7 +146,15 @@ public class GameHUD : MonoBehaviour
         var human = localPlayer.GetComponent<HumanAbility>();
 
         roleText.text = isZombie ? "ZOMBIE" : "HUMAN";
-        hidingText.gameObject.SetActive(human != null && human.IsHiding);
+
+        var occupiedSpot = HidingSpot.FindOccupiedBy(localPlayer.transform);
+        hideSpotCountdownText.gameObject.SetActive(occupiedSpot != null);
+        if (occupiedSpot != null)
+            hideSpotCountdownText.text = $"HIDDEN: {Mathf.CeilToInt(occupiedSpot.RemainingHideTime)}s";
+
+        // HumanAbility gets disabled while occupying a HidingSpot (see HidingSpot.Enter) so its own
+        // IsHiding doesn't fight the locker's forced state — check the spot first, crouch second.
+        hidingText.gameObject.SetActive(occupiedSpot == null && human != null && human.IsHiding);
     }
 
     private static string FormatTime(float seconds)
