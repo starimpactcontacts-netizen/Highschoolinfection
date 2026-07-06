@@ -32,7 +32,10 @@ public class ModelTexturePostprocessor : AssetPostprocessor
 
         var importer = (ModelImporter)assetImporter;
         importer.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
-        importer.materialLocation = ModelImporterMaterialLocation.External;
+        // materialLocation is no longer settable in this Unity version ("External Material Location
+        // is no longer supported" — logged as a warning on every FBX under Assets/Models/ until this
+        // was removed). ImportViaMaterialDescription still extracts to real external .mat assets by
+        // itself; that behavior doesn't depend on this explicit (now-obsolete) setter.
         importer.materialSearch = ModelImporterMaterialSearch.RecursiveUp;
 
         if (HumanoidCharacterFolders.Any(normalizedPath.Contains))
