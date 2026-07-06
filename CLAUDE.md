@@ -94,9 +94,11 @@ All auto-run via `[RuntimeInitializeOnLoadMethod]`, no manual setup, same as eve
   (extrude along normals, cull front faces, flat color). Applied by duplicating each renderer under a
   target into a *sibling* GameObject with the outline shader — the target's own material assignments are
   never touched. Wired to `StudentChan` in `GameBootstrap.EnsurePlayer` (width `0.0025`) and to the whole map
-  in `GameBootstrap.BuildMap` (width `0.0008` — thinner, so building edges read as a subtle line rather than
-  the character's heavier cartoon border). **There is no zombie model in this project** — if "zombie"
-  gameplay gets requested, that's a new asset import, not something already here to reuse.
+  in `GameBootstrap.BuildMap` (width `0.004` — was `0.0008`, but the whole map sits under a parent scaled
+  up 2.2x (`MapScale`), so that rendered far thinner in world space than the same number does on the
+  unscaled character; bumped up so it actually reads as an outline against building-sized geometry).
+  **There is no zombie model in this project** — if "zombie" gameplay gets requested, that's a new asset
+  import, not something already here to reuse.
 - `Assets/Shaders/WetSurface.shader` (opaque: ground/metal/walls) / `Assets/Shaders/RainWindow.shader`
   (transparent: glass) + `Assets/Scripts/WetSurfaceApplier.cs` — a custom cel-shaded/toon lighting model
   (`#pragma surface surf Toon`) with fake wet reflection via `Emission`. **`WetSurfaceApplier.Apply` is NOT

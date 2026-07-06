@@ -206,9 +206,12 @@ public class GameBootstrap : MonoBehaviour
         // color. That fought directly against actually placing/texturing things by hand. If the
         // wet/toon look comes back, it needs to only touch materials that already resolve a real
         // texture, and never on a re-run that would clobber manual changes.
-        // Thinner than the character's outline (0.0025) — building edges should read as a subtle
-        // line, not a heavy cartoon border like her silhouette.
-        ToonOutlineApplier.Apply(instance, Color.black, 0.0008f);
+        // The whole map sits under a parent scaled up MapScale (2.2x — see "map" GameObject above),
+        // so a raw width here renders MapScale times thicker in world space than the same number
+        // would on the unscaled character. 0.0008 previously accounted for that but ended up too
+        // thin to actually read as an outline against building-sized geometry — bumped up so it's
+        // clearly visible, matching the character's own outline treatment.
+        ToonOutlineApplier.Apply(instance, Color.black, 0.004f);
 
         Vector3 spawn = FindSpawnPoint(aggregate);
         Debug.Log($"[GameBootstrap] Loaded map. Added {added} missing colliders. Spawning at {FormatV(spawn)}. " +
